@@ -7,11 +7,11 @@ import report_manager
 DAILY_NEW_WORD_LIMIT = 100
 HARD_WORD_THRESHOLD = 3 # Max number of wrongs in a day
 
-def calculate_word_priority(stats):
+def calculate_word_priority(stats, word_details):
     """
     Calculate priority score for word selection.
-    A word you are bad at, that is due today, or shows volatile (unstable)
-    memory recall has a higher priority.
+    A word you are bad at, that is due today, shows volatile memory, or has
+    a specific article weakness has a higher priority.
     """
     right = stats.get('right', 0)
     wrong = stats.get('wrong', 0)
@@ -32,24 +32,36 @@ def calculate_word_priority(stats):
         except (ValueError, TypeError):
             pass
 
-    # --- NEW: Calculate Volatility Weight ---
     volatility_weight = 0
     history = stats.get('recent_history', [])
-    # Only calculate volatility if there's a meaningful amount of recent data
     if len(history) > 3:
         flips = 0
-        # Count the number of times the answer changes (e.g., from right to wrong)
         for i in range(len(history) - 1):
             if history[i] != history[i+1]:
                 flips += 1
-        
-        # A simple but effective score: more flips indicate higher volatility.
-        # Each flip adds a significant weight, capped to avoid excessive dominance.
-        # e.g., R->W->R->W (3 flips) gets a 21 point boost.
         volatility_weight = min(flips * 7, 35)
+
+    # --- NEW: Article-Noun In-Correction Rate Logic ---
+    article_weakness_weight = 0
+    # This logic only applies to Nouns.
+    if word_details.get('type') == 'Nomen':
+        article_errors = stats.get('article_wrong', 0)
+        noun_errors = stats.get('wrong', 0) # 'wrong' counts as forgetting the noun itself.
+        total_errors = article_errors + noun_errors
+
+        # Only calculate if there are errors to analyze to avoid division by zero.
+        if total_errors > 0:
+            in_correction_rate = article_errors / total_errors
+            
+            # If over 60% of errors are purely article-related, it signifies a
+            # specific weakness in gender memorization, not vocabulary recall.
+            if in_correction_rate > 0.6:
+                # Apply a targeted priority boost to address this specific issue.
+                article_weakness_weight = 20
     # --- END OF NEW LOGIC ---
 
-    total_priority = accuracy_weight + mistake_weight + time_urgency + volatility_weight
+    total_priority = (accuracy_weight + mistake_weight + time_urgency + 
+                      volatility_weight + article_weakness_weight)
     return min(total_priority, 100)
 
 
@@ -116,7 +128,6 @@ def select_quiz_words(level, word_to_level_map):
     
     candidate_pool = []
     for word in due_words:
-        # Condition 1: Word has been answered wrong too many times today. Exclude it.
         if daily_wrong_counts.get(word, 0) >= HARD_WORD_THRESHOLD:
             continue
 
@@ -125,10 +136,8 @@ def select_quiz_words(level, word_to_level_map):
 
         seen_words_for_this_level = seen_today_by_level.get(word_level, [])
         
-        # Condition 2: Word has already been seen today. It can always be reviewed again (if not hard).
         if word in seen_words_for_this_level:
             candidate_pool.append(word)
-        # Condition 3: Word is new for today, check if the level's daily limit has been reached.
         elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT:
             candidate_pool.append(word)
 
@@ -139,7 +148,9 @@ def select_quiz_words(level, word_to_level_map):
     for word in candidate_pool:
         if word in all_word_details:
             stats = all_repetition_stats[word]
-            priority = calculate_word_priority(stats)
+            # --- MODIFICATION: Pass the full details object for richer context ---
+            word_details = all_word_details[word]
+            priority = calculate_word_priority(stats, word_details)
             words_with_priorities.append((word, priority))
 
     selected_word_keys = weighted_random_selection(words_with_priorities, 5)

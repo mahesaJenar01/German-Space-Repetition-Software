@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 import data_manager
-import teacher_logic
-from cache import get_word_to_level_map # <-- IMPORT FROM NEW FILE
+from logic import quiz_selector # <-- UPDATED IMPORT
+from cache import get_word_to_level_map
 
 quiz_bp = Blueprint('quiz_bp', __name__)
 
@@ -11,7 +11,8 @@ def get_word_details(level):
         return jsonify({"error": "Invalid level specified"}), 400
 
     word_map = get_word_to_level_map()
-    words_to_send = teacher_logic.select_quiz_words(level, word_map)
+    # Call the refactored selection logic
+    words_to_send = quiz_selector.select_quiz_words(level, word_map)
     
     if not words_to_send:
         return jsonify([]), 200

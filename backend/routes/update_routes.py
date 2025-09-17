@@ -1,12 +1,11 @@
 from flask import Blueprint, jsonify, request
-from datetime import datetime, timedelta
+from datetime import datetime
 import data_manager
 import report_manager
 from cache import get_word_to_level_map, get_word_details_map
+from logic import word_updater, report_updater # <-- NEW IMPORTS
 
 update_bp = Blueprint('update_bp', __name__)
-HARD_WORD_THRESHOLD = 3 
-HISTORY_MAX_LENGTH = 10 
 
 @update_bp.route('/api/update', methods=['POST'])
 def update_words():
@@ -17,109 +16,47 @@ def update_words():
     if not level or (level != "mix" and level not in data_manager.LEVELS):
         return jsonify({"error": "Invalid or missing level"}), 400
     
+    # 1. Load all necessary data and caches
     all_level_data = {lvl: data_manager.load_repetition_stats(lvl) for lvl in data_manager.LEVELS}
-
-    changed_files = set()
-    today = datetime.now()
     report_data = report_manager.load_report_data()
-    today_str = today.strftime('%Y-%m-%d')
+    report_data['today_str'] = datetime.now().strftime('%Y-%m-%d') # Add today's date for helpers
+    
     word_level_map = get_word_to_level_map()
     word_details_map = get_word_details_map()
 
-    daily_seen = report_data.setdefault('daily_seen_words', {}).setdefault(today_str, {})
-    daily_wrong_per_word = report_data.setdefault('daily_wrong_counts', {}).setdefault(today_str, {})
-    daily_level_correct = report_data.setdefault('daily_level_correct_counts', {}).setdefault(today_str, {lvl: 0 for lvl in data_manager.LEVELS})
-    daily_level_wrong = report_data.setdefault('daily_level_wrong_counts', {}).setdefault(today_str, {lvl: 0 for lvl in data_manager.LEVELS})
-    word_learned_counts = report_data.setdefault('word_learned', {})
-    category_performance = report_data.setdefault('category_performance', {})
+    # 2. Process confusions first (as it might update stats for words not in this quiz)
+    all_level_data, changed_files = word_updater.process_confusions(results, all_level_data, word_level_map)
 
-    # ... (Confusion detection logic is unchanged) ...
-    incorrect_m2w_items = []
-    correct_m2w_word_map = {}
+    # 3. Process each quiz result to update word repetition stats
+    daily_wrong_counts_today = report_data.get('daily_wrong_counts', {}).get(report_data['today_str'], {})
     for result in results:
-        if result.get('direction') == 'meaningToWord':
-            correct_word = result.get('word')
-            correct_m2w_word_map[correct_word] = result
-            if result.get('result_type') == 'NO_MATCH': incorrect_m2w_items.append(result)
-    for incorrect_item in incorrect_m2w_items:
-        user_answer = incorrect_item.get('user_answer', '').strip()
-        if user_answer in correct_m2w_word_map:
-            word_A = incorrect_item.get('word'); word_B = user_answer
-            if word_A == word_B: continue
-            level_A = word_level_map.get(word_A); level_B = word_level_map.get(word_B)
-            if level_A and level_B:
-                stats_A = all_level_data[level_A].setdefault(word_A, data_manager.REPETITION_SCHEMA.copy())
-                confusions_A = stats_A.setdefault('confused_with', {}); confusions_A[word_B] = confusions_A.get(word_B, 0) + 1
-                stats_B = all_level_data[level_B].setdefault(word_B, data_manager.REPETITION_SCHEMA.copy())
-                confusions_B = stats_B.setdefault('confused_with', {}); confusions_B[word_A] = confusions_B.get(word_A, 0) + 1
-                changed_files.add(level_A); changed_files.add(level_B)
+        word = result.get('word')
+        word_lvl = word_level_map.get(word)
+        if not word_lvl: continue
 
-    for result in results:
-        word_to_update = result.get('word')
-        result_type = result.get('result_type')
+        # Get the word's current stats
+        stats = all_level_data[word_lvl].setdefault(word, data_manager.REPETITION_SCHEMA.copy())
         
-        word_lvl = word_level_map.get(word_to_update)
-        word_details = word_details_map.get(word_to_update)
-
-        if not word_lvl or not word_details:
-            print(f"WARNING: Could not find metadata for word '{word_to_update}'. Skipping update.")
-            continue
-
-        repetition_data_for_level = all_level_data[word_lvl]
-        stats = repetition_data_for_level.setdefault(word_to_update, data_manager.REPETITION_SCHEMA.copy())
+        # Get how many times this specific word was wrong today
+        daily_wrong_count = daily_wrong_counts_today.get(word, 0)
         
-        is_correct = result_type == "PERFECT_MATCH"
-
-        # --- NEW: "Sticky Correction" Score Logic ---
-        # 1. Read the state from the previous encounter.
-        last_attempt_was_wrong = stats.get('last_result_was_wrong', False)
-        # 2. If the last attempt was wrong and this one is right, it's a successful correction.
-        if last_attempt_was_wrong and is_correct:
-            stats['successful_corrections'] = stats.get('successful_corrections', 0) + 1
-        # 3. Update the state for the *next* encounter based on the *current* result.
-        stats['last_result_was_wrong'] = not is_correct
-        # --- END OF NEW LOGIC ---
-
-        if stats.get('total_encountered', 0) == 0:
-            if not is_correct:
-                stats['failed_first_encounter'] = True
-
-        word_type = word_details.get('type')
-        if word_type:
-            type_stats = category_performance.setdefault(word_type, {'right': 0, 'wrong': 0})
-            if is_correct: type_stats['right'] += 1
-            else: type_stats['wrong'] += 1
-
-        history = stats.setdefault('recent_history', [])
-        history.append(1 if is_correct else 0)
-        if len(history) > HISTORY_MAX_LENGTH: stats['history'] = history[-HISTORY_MAX_LENGTH:]
+        # Call the pure update function to get the new state
+        updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count)
         
-        stats['total_encountered'] += 1
-        stats['last_seen'] = today.isoformat()
-
-        if is_correct:
-            stats['right'] += 1; daily_level_correct[word_lvl] += 1; stats['last_correct'] = today.isoformat()
-            stats['consecutive_correct'] += 1; stats['article_wrong'] = 0
-            if stats['consecutive_correct'] >= 3:
-                stats['streak_level'] += 1; new_delay = stats['current_delay_days'] + stats['streak_level']
-                stats['current_delay_days'] = new_delay; stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat()
-                stats['consecutive_correct'] = 0
-        elif "PARTIAL_MATCH" in result_type:
-            stats['article_wrong'] += 1; daily_level_wrong[word_lvl] += 1
-        else: # NO_MATCH
-            stats['wrong'] += 1
-            daily_wrong_per_word[word_to_update] = daily_wrong_per_word.get(word_to_update, 0) + 1
-            daily_level_wrong[word_lvl] += 1
-            if daily_wrong_per_word[word_to_update] >= HARD_WORD_THRESHOLD:
-                stats['wrong'] += 2; stats['streak_level'] = 0; stats['consecutive_correct'] = 0; stats['current_delay_days'] = 1; stats['next_show_date'] = (today + timedelta(days=1)).isoformat()
-            else:
-                new_delay = max(0, stats['current_delay_days'] - stats['streak_level']); stats['current_delay_days'] = new_delay; stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat(); stats['consecutive_correct'] = 0; stats['streak_level'] = 0
-        
+        # Place the new state back into our main data object
+        all_level_data[word_lvl][word] = updated_stats
         changed_files.add(word_lvl)
 
+    # 4. Update the performance reports in a single, separate step
+    report_data = report_updater.update_reports_from_results(
+        report_data, results, word_level_map, word_details_map
+    )
+
+    # 5. Save all changes to disk
     for lvl in changed_files:
         data_manager.save_repetition_stats(lvl, all_level_data[lvl])
-
+    
+    if 'today_str' in report_data: del report_data['today_str'] # Clean up temporary key
     report_manager.save_report_data(report_data)
 
     return jsonify({"status": "success", "message": f"Updated {len(results)} words."})

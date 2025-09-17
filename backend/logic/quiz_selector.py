@@ -3,71 +3,37 @@ from datetime import datetime, date
 import data_manager
 import report_manager
 
-# --- MODIFIED: Configuration for the daily limit ---
+# Import individual metric calculators
+from .priority_metrics import (
+    accuracy,
+    article_weakness,
+    recency,
+    stickiness,
+    volatility,
+)
+
+# Configuration
 DAILY_NEW_WORD_LIMIT = 100
-HARD_WORD_THRESHOLD = 3 # Max number of wrongs in a day
+HARD_WORD_THRESHOLD = 3  # Max number of wrongs in a day
 
 def calculate_word_priority(stats, word_details):
     """
-    Calculates a word's priority score based on multiple performance metrics.
+    Aggregates scores from various metrics to determine a word's final priority.
+    The role of this function is to orchestrate, not to calculate.
     """
-    right = stats.get('right', 0)
-    wrong = stats.get('wrong', 0)
-    total = stats.get('total_encountered', 0)
-    
-    if total == 0: return 100
-    
-    accuracy = right / total if total > 0 else 0
-    accuracy_weight = (1 - accuracy) * 50
-    mistake_weight = min(wrong * 5, 40)
-    
-    time_urgency = 0
-    last_seen = stats.get('last_seen')
-    if last_seen:
-        try:
-            days_since = (datetime.now() - datetime.fromisoformat(last_seen)).days
-            time_urgency = min(days_since, 10)
-        except (ValueError, TypeError): pass
+    # Boost for words failed on the first encounter
+    first_encounter_boost = 10 if stats.get('failed_first_encounter', False) else 0
 
-    volatility_weight = 0
-    history = stats.get('recent_history', [])
-    if len(history) > 3:
-        flips = 0
-        for i in range(len(history) - 1):
-            if history[i] != history[i+1]: flips += 1
-        volatility_weight = min(flips * 7, 35)
+    # Sum scores from all modular metric calculators
+    total_priority = (
+        accuracy.calculate_accuracy_score(stats) +
+        recency.calculate_recency_score(stats) +
+        volatility.calculate_volatility_score(stats) +
+        article_weakness.calculate_article_weakness_score(stats, word_details) +
+        stickiness.calculate_stickiness_score(stats) +
+        first_encounter_boost
+    )
 
-    article_weakness_weight = 0
-    if word_details.get('type') == 'Nomen':
-        article_errors = stats.get('article_wrong', 0)
-        noun_errors = stats.get('wrong', 0)
-        total_errors = article_errors + noun_errors
-        if total_errors > 0:
-            in_correction_rate = article_errors / total_errors
-            if in_correction_rate > 0.6:
-                article_weakness_weight = 20
-    
-    unintuitive_word_boost = 10 if stats.get('failed_first_encounter', False) else 0
-
-    # --- NEW: "Sticky Correction" Score Logic ---
-    sticky_correction_weight = 0
-    total_mistakes = stats.get('wrong', 0) + stats.get('article_wrong', 0)
-    # This metric is only meaningful if the user has made several mistakes.
-    if total_mistakes > 2:
-        successful_fixes = stats.get('successful_corrections', 0)
-        # Calculate the rate of successful correction following a mistake.
-        sticky_rate = successful_fixes / total_mistakes
-        
-        # If the rate is low, the word is "stubborn" and needs more attention.
-        # A word with a 0% sticky rate gets a full 30-point boost.
-        # A word with a 40% sticky rate gets a (1 - 0.8) * 30 = 6-point boost.
-        if sticky_rate < 0.5:
-            sticky_correction_weight = (1 - (sticky_rate * 2)) * 30
-    # --- END OF NEW LOGIC ---
-
-    total_priority = (accuracy_weight + mistake_weight + time_urgency + 
-                      volatility_weight + article_weakness_weight +
-                      unintuitive_word_boost + sticky_correction_weight)
     return min(total_priority, 100)
 
 

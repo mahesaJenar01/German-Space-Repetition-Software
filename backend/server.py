@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from cache import get_word_to_level_map # <-- IMPORT FROM NEW FILE
+from cache import get_word_to_level_map, get_word_details_map # <-- IMPORT NEW FUNCTION
 
 app = Flask(__name__)
 CORS(app)
@@ -21,4 +21,5 @@ def index():
 
 if __name__ == '__main__':
     get_word_to_level_map()  # Prime the cache on server start
+    get_word_details_map()   # <-- NEW: Prime the details cache
     app.run(debug=True, port=5000)

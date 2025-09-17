@@ -14,6 +14,7 @@ DEFAULT_REPORT_SCHEMA = {
     "daily_wrong_counts": {},
     "daily_level_correct_counts": {}, # <-- RENAMED from daily_correct_counts
     "daily_level_wrong_counts": {},   # <-- NEW: This was missing but used elsewhere
+    "category_performance": {},       # <-- NEW: Tracks performance by word type (Nomen, Verb, etc.)
 }
 
 def load_report_data():
@@ -32,11 +33,13 @@ def load_report_data():
                 data["daily_seen_words"] = {}
             if "daily_wrong_counts" not in data:
                 data["daily_wrong_counts"] = {}
-            # Check for the correct new keys
             if "daily_level_correct_counts" not in data:
                 data["daily_level_correct_counts"] = {}
             if "daily_level_wrong_counts" not in data:
                 data["daily_level_wrong_counts"] = {}
+            # Ensure the new category performance key exists
+            if "category_performance" not in data:
+                data["category_performance"] = {}
             # Clean up the old, unused key if it exists
             if "daily_correct_counts" in data:
                 del data["daily_correct_counts"]

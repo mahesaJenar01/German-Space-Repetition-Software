@@ -10,7 +10,8 @@ HARD_WORD_THRESHOLD = 3 # Max number of wrongs in a day
 def calculate_word_priority(stats):
     """
     Calculate priority score for word selection.
-    A word you are bad at that is due today has a higher priority.
+    A word you are bad at, that is due today, or shows volatile (unstable)
+    memory recall has a higher priority.
     """
     right = stats.get('right', 0)
     wrong = stats.get('wrong', 0)
@@ -31,7 +32,24 @@ def calculate_word_priority(stats):
         except (ValueError, TypeError):
             pass
 
-    total_priority = accuracy_weight + mistake_weight + time_urgency
+    # --- NEW: Calculate Volatility Weight ---
+    volatility_weight = 0
+    history = stats.get('recent_history', [])
+    # Only calculate volatility if there's a meaningful amount of recent data
+    if len(history) > 3:
+        flips = 0
+        # Count the number of times the answer changes (e.g., from right to wrong)
+        for i in range(len(history) - 1):
+            if history[i] != history[i+1]:
+                flips += 1
+        
+        # A simple but effective score: more flips indicate higher volatility.
+        # Each flip adds a significant weight, capped to avoid excessive dominance.
+        # e.g., R->W->R->W (3 flips) gets a 21 point boost.
+        volatility_weight = min(flips * 7, 35)
+    # --- END OF NEW LOGIC ---
+
+    total_priority = accuracy_weight + mistake_weight + time_urgency + volatility_weight
     return min(total_priority, 100)
 
 

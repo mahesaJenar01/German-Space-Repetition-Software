@@ -6,6 +6,7 @@ from cache import get_word_to_level_map
 
 update_bp = Blueprint('update_bp', __name__)
 HARD_WORD_THRESHOLD = 3 # Must match the value in teacher_logic
+HISTORY_MAX_LENGTH = 10 # <-- NEW: Max length for the volatility history window
 
 @update_bp.route('/api/update', methods=['POST'])
 def update_words():
@@ -30,46 +31,32 @@ def update_words():
     daily_level_wrong = report_data.setdefault('daily_level_wrong_counts', {}).setdefault(today_str, {lvl: 0 for lvl in data_manager.LEVELS})
     word_learned_counts = report_data.setdefault('word_learned', {})
 
-    # --- NEW: Word Swap Confusion Detection Logic ---
-    # Pass 1: Collect data from this quiz batch
+    # ... (Confusion detection logic is unchanged) ...
     incorrect_m2w_items = []
-    correct_m2w_word_map = {} # Maps a correct German word -> original quiz item
+    correct_m2w_word_map = {}
     for result in results:
         if result.get('direction') == 'meaningToWord':
             correct_word = result.get('word')
             correct_m2w_word_map[correct_word] = result
             if result.get('result_type') == 'NO_MATCH':
                 incorrect_m2w_items.append(result)
-
-    # Pass 2: Check for swaps
     for incorrect_item in incorrect_m2w_items:
         user_answer = incorrect_item.get('user_answer', '').strip()
-        # If the user's wrong answer is the correct answer for another question in this batch...
         if user_answer in correct_m2w_word_map:
-            word_A = incorrect_item.get('word') # The word that was ASKED (e.g., 'riechen')
-            word_B = user_answer               # The word that was ANSWERED (e.g., 'reichen')
-
-            if word_A == word_B: continue # Not a swap with another word.
-            
-            print(f"CONFUSION DETECTED: Asked for '{word_A}', user answered with '{word_B}'")
-
+            word_A = incorrect_item.get('word')
+            word_B = user_answer
+            if word_A == word_B: continue
             level_A = word_level_map.get(word_A)
             level_B = word_level_map.get(word_B)
-
             if level_A and level_B:
-                # Symmetrically update stats for both words
                 stats_A = all_level_data[level_A].setdefault(word_A, data_manager.REPETITION_SCHEMA.copy())
                 confusions_A = stats_A.setdefault('confused_with', {})
                 confusions_A[word_B] = confusions_A.get(word_B, 0) + 1
-                
                 stats_B = all_level_data[level_B].setdefault(word_B, data_manager.REPETITION_SCHEMA.copy())
                 confusions_B = stats_B.setdefault('confused_with', {})
                 confusions_B[word_A] = confusions_B.get(word_A, 0) + 1
-                
-                # Mark both files for saving, even if they are different levels
                 changed_files.add(level_A)
                 changed_files.add(level_B)
-    # --- END OF NEW LOGIC ---
 
     for result in results:
         word_to_update = result.get('word')
@@ -84,21 +71,23 @@ def update_words():
         repetition_data_for_level = all_level_data[word_lvl]
         stats = repetition_data_for_level.setdefault(word_to_update, data_manager.REPETITION_SCHEMA.copy())
 
-        # --- THIS IS THE IMPROVED LOGIC ---
+        # --- NEW: Update recent history for volatility tracking ---
+        history = stats.setdefault('recent_history', [])
+        # Treat PERFECT_MATCH as 1 (correct), all others (NO_MATCH, PARTIAL) as 0 (incorrect)
+        is_correct = result_type == "PERFECT_MATCH"
+        history.append(1 if is_correct else 0)
+        # Trim the list to keep only the last N results, maintaining a sliding window
+        if len(history) > HISTORY_MAX_LENGTH:
+            stats['recent_history'] = history[-HISTORY_MAX_LENGTH:]
+        # --- END OF NEW LOGIC ---
 
-        # Metric 1: Track all unique words PRACTICED today (new or old).
-        # This now runs for EVERY word.
+        # --- (Rest of the metric update logic is unchanged) ---
         seen_today_for_level = daily_seen.setdefault(word_lvl, [])
         if word_to_update not in seen_today_for_level:
             seen_today_for_level.append(word_to_update)
-
-        # Metric 2: Track brand new words LEARNED today (first time ever).
-        # This only runs if the word has never been encountered before.
         if stats['total_encountered'] == 0:
             level_counts = word_learned_counts.setdefault(word_lvl, {})
             level_counts[today_str] = level_counts.get(today_str, 0) + 1
-        
-        # --- END of improved logic section ---
         
         stats['total_encountered'] += 1
         stats['last_seen'] = today.isoformat()

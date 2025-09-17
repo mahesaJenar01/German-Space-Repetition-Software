@@ -20,7 +20,8 @@ REPETITION_SCHEMA = {
     "streak_level": 0,          # This is your 'n', the number of times a streak was achieved.
     "current_delay_days": 0,    # Stores the last calculated delay.
     "next_show_date": None,     # ISO Date string for when the word is "unlocked".
-    "confused_with": {},        # <-- NEW: Tracks word-swap confusions.
+    "confused_with": {},        # <-- Tracks word-swap confusions.
+    "recent_history": [],       # <-- NEW: Tracks recent answer volatility (1=correct, 0=wrong).
 }
 
 def load_repetition_stats(level):

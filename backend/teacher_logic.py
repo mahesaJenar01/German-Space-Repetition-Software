@@ -9,9 +9,7 @@ HARD_WORD_THRESHOLD = 3 # Max number of wrongs in a day
 
 def calculate_word_priority(stats, word_details):
     """
-    Calculate priority score for word selection.
-    A word you are bad at, that is due today, shows volatile memory, has an
-    article weakness, or was failed on first sight has a higher priority.
+    Calculates a word's priority score based on multiple performance metrics.
     """
     right = stats.get('right', 0)
     wrong = stats.get('wrong', 0)
@@ -49,17 +47,27 @@ def calculate_word_priority(stats, word_details):
             if in_correction_rate > 0.6:
                 article_weakness_weight = 20
     
-    # --- NEW: Permanent boost for "unintuitive" words ---
-    unintuitive_word_boost = 0
-    # If the word was failed on its first encounter, give it a small, permanent
-    # priority boost to ensure it gets slightly more frequent reviews over time.
-    if stats.get('failed_first_encounter', False):
-        unintuitive_word_boost = 10
+    unintuitive_word_boost = 10 if stats.get('failed_first_encounter', False) else 0
+
+    # --- NEW: "Sticky Correction" Score Logic ---
+    sticky_correction_weight = 0
+    total_mistakes = stats.get('wrong', 0) + stats.get('article_wrong', 0)
+    # This metric is only meaningful if the user has made several mistakes.
+    if total_mistakes > 2:
+        successful_fixes = stats.get('successful_corrections', 0)
+        # Calculate the rate of successful correction following a mistake.
+        sticky_rate = successful_fixes / total_mistakes
+        
+        # If the rate is low, the word is "stubborn" and needs more attention.
+        # A word with a 0% sticky rate gets a full 30-point boost.
+        # A word with a 40% sticky rate gets a (1 - 0.8) * 30 = 6-point boost.
+        if sticky_rate < 0.5:
+            sticky_correction_weight = (1 - (sticky_rate * 2)) * 30
     # --- END OF NEW LOGIC ---
 
     total_priority = (accuracy_weight + mistake_weight + time_urgency + 
                       volatility_weight + article_weakness_weight +
-                      unintuitive_word_boost)
+                      unintuitive_word_boost + sticky_correction_weight)
     return min(total_priority, 100)
 
 
@@ -92,7 +100,7 @@ def weighted_random_selection(words_with_priorities, count=5):
 
 def select_quiz_words(level, word_to_level_map):
     """
-    Main logic for selecting words, now filters out words marked as 'hard' for today.
+    Main logic for selecting words, factoring in all performance metrics.
     """
     all_word_details = {}
     all_repetition_stats = {}

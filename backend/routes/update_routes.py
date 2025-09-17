@@ -70,13 +70,19 @@ def update_words():
         
         is_correct = result_type == "PERFECT_MATCH"
 
-        # --- NEW: "Unintuitive Word" Flag Logic ---
-        # This check runs ONLY on the very first encounter with a word.
+        # --- NEW: "Sticky Correction" Score Logic ---
+        # 1. Read the state from the previous encounter.
+        last_attempt_was_wrong = stats.get('last_result_was_wrong', False)
+        # 2. If the last attempt was wrong and this one is right, it's a successful correction.
+        if last_attempt_was_wrong and is_correct:
+            stats['successful_corrections'] = stats.get('successful_corrections', 0) + 1
+        # 3. Update the state for the *next* encounter based on the *current* result.
+        stats['last_result_was_wrong'] = not is_correct
+        # --- END OF NEW LOGIC ---
+
         if stats.get('total_encountered', 0) == 0:
-            # If the first attempt is anything other than perfect, flag it permanently.
             if not is_correct:
                 stats['failed_first_encounter'] = True
-        # --- END OF NEW LOGIC ---
 
         word_type = word_details.get('type')
         if word_type:
@@ -86,12 +92,8 @@ def update_words():
 
         history = stats.setdefault('recent_history', [])
         history.append(1 if is_correct else 0)
-        if len(history) > HISTORY_MAX_LENGTH: stats['recent_history'] = history[-HISTORY_MAX_LENGTH:]
+        if len(history) > HISTORY_MAX_LENGTH: stats['history'] = history[-HISTORY_MAX_LENGTH:]
         
-        seen_today_for_level = daily_seen.setdefault(word_lvl, [])
-        if word_to_update not in seen_today_for_level: seen_today_for_level.append(word_to_update)
-        
-        # This counter must be incremented AFTER the first-encounter check.
         stats['total_encountered'] += 1
         stats['last_seen'] = today.isoformat()
 

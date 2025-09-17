@@ -22,7 +22,10 @@ REPETITION_SCHEMA = {
     "next_show_date": None,
     "confused_with": {},
     "recent_history": [],
-    "failed_first_encounter": False, # <-- NEW: Flags words failed on the first try.
+    "failed_first_encounter": False,
+    # NEW FIELDS FOR "STICKY CORRECTION" SCORE:
+    "last_result_was_wrong": False,      # Tracks if the last attempt was incorrect.
+    "successful_corrections": 0,         # Counts right answers that follow wrong ones.
 }
 
 def load_repetition_stats(level):

@@ -1,0 +1,131 @@
+.word-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(17, 24, 39, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.word-detail-content {
+  background: white;
+  padding: 2rem 2.5rem;
+  border-radius: var(--border-radius-lg);
+  max-width: 600px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  animation: fadeIn 0.3s ease-out;
+  text-align: left;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.close-button:hover {
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.word-detail-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 2.2em;
+  color: var(--dark-green);
+}
+
+.word-attributes {
+  margin: 0;
+  padding: 0;
+}
+
+.attribute-item {
+  margin-bottom: 1.25rem;
+}
+
+.attribute-item:last-child {
+  margin-bottom: 0;
+}
+
+.attribute-item dt {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1em;
+  margin-bottom: 0.25rem;
+}
+
+.attribute-item dd {
+  margin-left: 0;
+  color: var(--text-secondary);
+  font-size: 1.1em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* --- NEW STYLES FOR THE LIST --- */
+.attribute-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem; /* Indent the list */
+  list-style-type: disc;
+}
+
+.attribute-list li {
+  margin-bottom: 0.5rem;
+}
+
+.attribute-list li:last-child {
+  margin-bottom: 0;
+}
+/* --- END OF NEW STYLES --- */
+
+
+.close-hint {
+  display: block;
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .word-detail-content {
+    padding: 2rem 1.5rem;
+  }
+  .word-detail-content h2 {
+    font-size: 1.8em;
+  }
+}

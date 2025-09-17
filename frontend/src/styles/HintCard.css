@@ -1,0 +1,68 @@
+.hint-card {
+  position: fixed; /* Position relative to the viewport */
+  background-color: #334155; /* A dark slate color */
+  color: #f1f5f9; /* Off-white text */
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  z-index: 1001; /* Ensure it's above the word detail overlay */
+  pointer-events: none; /* Prevents the card from interfering with mouse events */
+  font-size: 0.9em;
+  text-align: left;
+  animation: hintFadeIn 0.2s ease-out;
+  border: 1px solid #475569;
+  max-width: 250px;
+}
+
+.hint-attributes {
+  margin: 0;
+  padding: 0;
+}
+
+.hint-item {
+  margin-bottom: 0.5rem;
+}
+
+.hint-item:last-child {
+  margin-bottom: 0;
+}
+
+.hint-item dt {
+  font-weight: 600;
+  color: var(--primary-green);
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.1rem;
+}
+
+.hint-item dd {
+  margin-left: 0;
+  font-size: 1.1em;
+  color: #e2e8f0;
+}
+
+/* --- NEW: Style for the context hint --- */
+.hint-item.hint-context {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #475569;
+}
+
+.hint-item.hint-context dd {
+  font-style: italic;
+  color: #cbd5e1; /* A slightly lighter, more muted color */
+  font-size: 1em;
+}
+/* --- END OF NEW STYLE --- */
+
+@keyframes hintFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

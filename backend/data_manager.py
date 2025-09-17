@@ -11,17 +11,18 @@ LEVELS = ["a1", "a2", "b1"]
 REPETITION_SCHEMA = {
     "right": 0,
     "wrong": 0,
-    "article_wrong": 0, # <-- NEW FIELD
+    "article_wrong": 0,
     "total_encountered": 0,
     "last_seen": None,
     "last_correct": None,
     # NEW FIELDS FOR SCHEDULED REPETITION:
-    "consecutive_correct": 0,   # Tracks the 3-in-a-row streak.
-    "streak_level": 0,          # This is your 'n', the number of times a streak was achieved.
-    "current_delay_days": 0,    # Stores the last calculated delay.
-    "next_show_date": None,     # ISO Date string for when the word is "unlocked".
-    "confused_with": {},        # <-- Tracks word-swap confusions.
-    "recent_history": [],       # <-- NEW: Tracks recent answer volatility (1=correct, 0=wrong).
+    "consecutive_correct": 0,
+    "streak_level": 0,
+    "current_delay_days": 0,
+    "next_show_date": None,
+    "confused_with": {},
+    "recent_history": [],
+    "failed_first_encounter": False, # <-- NEW: Flags words failed on the first try.
 }
 
 def load_repetition_stats(level):

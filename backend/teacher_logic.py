@@ -10,8 +10,8 @@ HARD_WORD_THRESHOLD = 3 # Max number of wrongs in a day
 def calculate_word_priority(stats, word_details):
     """
     Calculate priority score for word selection.
-    A word you are bad at, that is due today, shows volatile memory, or has
-    a specific article weakness has a higher priority.
+    A word you are bad at, that is due today, shows volatile memory, has an
+    article weakness, or was failed on first sight has a higher priority.
     """
     right = stats.get('right', 0)
     wrong = stats.get('wrong', 0)
@@ -29,39 +29,37 @@ def calculate_word_priority(stats, word_details):
         try:
             days_since = (datetime.now() - datetime.fromisoformat(last_seen)).days
             time_urgency = min(days_since, 10)
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError): pass
 
     volatility_weight = 0
     history = stats.get('recent_history', [])
     if len(history) > 3:
         flips = 0
         for i in range(len(history) - 1):
-            if history[i] != history[i+1]:
-                flips += 1
+            if history[i] != history[i+1]: flips += 1
         volatility_weight = min(flips * 7, 35)
 
-    # --- NEW: Article-Noun In-Correction Rate Logic ---
     article_weakness_weight = 0
-    # This logic only applies to Nouns.
     if word_details.get('type') == 'Nomen':
         article_errors = stats.get('article_wrong', 0)
-        noun_errors = stats.get('wrong', 0) # 'wrong' counts as forgetting the noun itself.
+        noun_errors = stats.get('wrong', 0)
         total_errors = article_errors + noun_errors
-
-        # Only calculate if there are errors to analyze to avoid division by zero.
         if total_errors > 0:
             in_correction_rate = article_errors / total_errors
-            
-            # If over 60% of errors are purely article-related, it signifies a
-            # specific weakness in gender memorization, not vocabulary recall.
             if in_correction_rate > 0.6:
-                # Apply a targeted priority boost to address this specific issue.
                 article_weakness_weight = 20
+    
+    # --- NEW: Permanent boost for "unintuitive" words ---
+    unintuitive_word_boost = 0
+    # If the word was failed on its first encounter, give it a small, permanent
+    # priority boost to ensure it gets slightly more frequent reviews over time.
+    if stats.get('failed_first_encounter', False):
+        unintuitive_word_boost = 10
     # --- END OF NEW LOGIC ---
 
     total_priority = (accuracy_weight + mistake_weight + time_urgency + 
-                      volatility_weight + article_weakness_weight)
+                      volatility_weight + article_weakness_weight +
+                      unintuitive_word_boost)
     return min(total_priority, 100)
 
 
@@ -107,12 +105,10 @@ def select_quiz_words(level, word_to_level_map):
 
     if not all_word_details: return []
 
-    # Ensure all words have a stats entry
     for word in all_word_details.keys():
         if word not in all_repetition_stats:
             all_repetition_stats[word] = data_manager.REPETITION_SCHEMA.copy()
 
-    # --- STEP 1: Filter for words that are due ---
     due_words = []
     today = date.today()
     for word, stats in all_repetition_stats.items():
@@ -120,7 +116,6 @@ def select_quiz_words(level, word_to_level_map):
         is_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
         if is_due: due_words.append(word)
 
-    # --- STEP 2: Filter out "hard" words and apply daily limit ---
     report_data = report_manager.load_report_data()
     today_str = datetime.now().strftime('%Y-%m-%d')
     seen_today_by_level = report_data.get('daily_seen_words', {}).get(today_str, {})
@@ -128,27 +123,19 @@ def select_quiz_words(level, word_to_level_map):
     
     candidate_pool = []
     for word in due_words:
-        if daily_wrong_counts.get(word, 0) >= HARD_WORD_THRESHOLD:
-            continue
-
+        if daily_wrong_counts.get(word, 0) >= HARD_WORD_THRESHOLD: continue
         word_level = word_to_level_map.get(word)
         if not word_level: continue
-
         seen_words_for_this_level = seen_today_by_level.get(word_level, [])
-        
-        if word in seen_words_for_this_level:
-            candidate_pool.append(word)
-        elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT:
-            candidate_pool.append(word)
+        if word in seen_words_for_this_level: candidate_pool.append(word)
+        elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT: candidate_pool.append(word)
 
     if not candidate_pool: return []
 
-    # --- STEP 3: Use priority logic on the final candidate pool ---
     words_with_priorities = []
     for word in candidate_pool:
         if word in all_word_details:
             stats = all_repetition_stats[word]
-            # --- MODIFICATION: Pass the full details object for richer context ---
             word_details = all_word_details[word]
             priority = calculate_word_priority(stats, word_details)
             words_with_priorities.append((word, priority))

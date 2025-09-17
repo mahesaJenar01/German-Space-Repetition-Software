@@ -139,7 +139,13 @@ function App() {
         }
       }
       newResults[item.key] = resultType;
-      resultsPayload.push({ word: item.key, result_type: resultType });
+      // --- THIS IS THE FIX ---
+      resultsPayload.push({
+        word: item.key,
+        result_type: resultType,
+        user_answer: userAnswer, // Send the processed user answer
+        direction: item.direction, // Send the quiz direction
+      });
     });
 
     setResults(newResults);
@@ -205,8 +211,8 @@ function App() {
           results={results}
           inputRefs={inputRefs}
           onWordClick={handleWordClick}
-          onShowHint={handleShowHint} /* --- THIS IS THE FIX --- */
-          onHideHint={handleHideHint} /* --- THIS IS THE FIX --- */
+          onShowHint={handleShowHint}
+          onHideHint={handleHideHint}
         />
       )}
       <p className="feedback-message">{feedback}</p>

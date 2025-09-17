@@ -30,6 +30,47 @@ def update_words():
     daily_level_wrong = report_data.setdefault('daily_level_wrong_counts', {}).setdefault(today_str, {lvl: 0 for lvl in data_manager.LEVELS})
     word_learned_counts = report_data.setdefault('word_learned', {})
 
+    # --- NEW: Word Swap Confusion Detection Logic ---
+    # Pass 1: Collect data from this quiz batch
+    incorrect_m2w_items = []
+    correct_m2w_word_map = {} # Maps a correct German word -> original quiz item
+    for result in results:
+        if result.get('direction') == 'meaningToWord':
+            correct_word = result.get('word')
+            correct_m2w_word_map[correct_word] = result
+            if result.get('result_type') == 'NO_MATCH':
+                incorrect_m2w_items.append(result)
+
+    # Pass 2: Check for swaps
+    for incorrect_item in incorrect_m2w_items:
+        user_answer = incorrect_item.get('user_answer', '').strip()
+        # If the user's wrong answer is the correct answer for another question in this batch...
+        if user_answer in correct_m2w_word_map:
+            word_A = incorrect_item.get('word') # The word that was ASKED (e.g., 'riechen')
+            word_B = user_answer               # The word that was ANSWERED (e.g., 'reichen')
+
+            if word_A == word_B: continue # Not a swap with another word.
+            
+            print(f"CONFUSION DETECTED: Asked for '{word_A}', user answered with '{word_B}'")
+
+            level_A = word_level_map.get(word_A)
+            level_B = word_level_map.get(word_B)
+
+            if level_A and level_B:
+                # Symmetrically update stats for both words
+                stats_A = all_level_data[level_A].setdefault(word_A, data_manager.REPETITION_SCHEMA.copy())
+                confusions_A = stats_A.setdefault('confused_with', {})
+                confusions_A[word_B] = confusions_A.get(word_B, 0) + 1
+                
+                stats_B = all_level_data[level_B].setdefault(word_B, data_manager.REPETITION_SCHEMA.copy())
+                confusions_B = stats_B.setdefault('confused_with', {})
+                confusions_B[word_A] = confusions_B.get(word_A, 0) + 1
+                
+                # Mark both files for saving, even if they are different levels
+                changed_files.add(level_A)
+                changed_files.add(level_B)
+    # --- END OF NEW LOGIC ---
+
     for result in results:
         word_to_update = result.get('word')
         result_type = result.get('result_type')

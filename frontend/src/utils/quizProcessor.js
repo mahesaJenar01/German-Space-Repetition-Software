@@ -46,7 +46,19 @@ export const createQuizItems = (wordsDetails, wordsStats) => {
   return wordsDetails.map(wordDetail => {
     const stats = wordsStats[wordDetail.word] || {};
     const fullWordData = { ...wordDetail, ...stats };
-    const direction = Math.random() > 0.5 ? 'wordToMeaning' : 'meaningToWord';
+    
+    let direction;
+    const isNounWithArticleErrors = wordDetail.type === 'Nomen' && fullWordData.article_wrong > 0;
+
+    if (isNounWithArticleErrors) {
+      // This noun has a history of article mistakes.
+      // Force the quiz direction to test the article again.
+      direction = 'meaningToWord';
+    } else {
+      // Default random direction for all other words or nouns without article errors.
+      direction = Math.random() > 0.5 ? 'wordToMeaning' : 'meaningToWord';
+    }
+
     const isWordToMeaning = direction === 'wordToMeaning';
 
     return {

@@ -7,14 +7,16 @@ REPORT_FILE = REPORT_FOLDER / "repetition_report.json"
 LEVELS = ["a1", "a2", "b1"]
 
 # The structure of the report file
-# --- THIS SCHEMA IS NOW FIXED ---
+# --- SCHEMA UPDATED ---
 DEFAULT_REPORT_SCHEMA = {
     "word_learned": {level: {} for level in LEVELS},
     "daily_seen_words": {},
     "daily_wrong_counts": {},
-    "daily_level_correct_counts": {}, # <-- RENAMED from daily_correct_counts
-    "daily_level_wrong_counts": {},   # <-- NEW: This was missing but used elsewhere
-    "category_performance": {},       # <-- NEW: Tracks performance by word type (Nomen, Verb, etc.)
+    "daily_article_wrong_counts": {},  # <-- NEW: Tracks which specific words had article errors
+    "daily_level_correct_counts": {},
+    "daily_level_wrong_counts": {},
+    "daily_level_article_wrong_counts": {},
+    "category_performance": {},
 }
 
 def load_report_data():
@@ -25,7 +27,7 @@ def load_report_data():
     try:
         with open(REPORT_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            # --- THIS VALIDATION LOGIC IS NOW FIXED ---
+            # --- VALIDATION LOGIC UPDATED ---
             # Simple validation/migration to ensure all new keys exist
             if "word_learned" not in data:
                 data["word_learned"] = {level: {} for level in LEVELS}
@@ -33,13 +35,18 @@ def load_report_data():
                 data["daily_seen_words"] = {}
             if "daily_wrong_counts" not in data:
                 data["daily_wrong_counts"] = {}
+            # Ensure the new key for specific article errors exists
+            if "daily_article_wrong_counts" not in data:
+                data["daily_article_wrong_counts"] = {}
             if "daily_level_correct_counts" not in data:
                 data["daily_level_correct_counts"] = {}
             if "daily_level_wrong_counts" not in data:
                 data["daily_level_wrong_counts"] = {}
-            # Ensure the new category performance key exists
             if "category_performance" not in data:
                 data["category_performance"] = {}
+            if "daily_level_article_wrong_counts" not in data:
+                data["daily_level_article_wrong_counts"] = {}
+
             # Clean up the old, unused key if it exists
             if "daily_correct_counts" in data:
                 del data["daily_correct_counts"]

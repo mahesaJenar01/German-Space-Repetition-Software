@@ -10,6 +10,7 @@ from .priority_metrics import (
     recency,
     stickiness,
     volatility,
+    confusion,  # <-- IMPORT THE NEW METRIC
 )
 
 # Configuration
@@ -31,6 +32,7 @@ def calculate_word_priority(stats, word_details):
         volatility.calculate_volatility_score(stats) +
         article_weakness.calculate_article_weakness_score(stats, word_details) +
         stickiness.calculate_stickiness_score(stats) +
+        confusion.calculate_confusion_score(stats) +  # <-- ADD THE NEW SCORE TO THE SUM
         first_encounter_boost
     )
 
@@ -81,7 +83,6 @@ def select_quiz_words(level, word_to_level_map):
 
     for word in all_word_details.keys():
         if word not in all_repetition_stats:
-            # --- USE THE NEW FUNCTION ---
             all_repetition_stats[word] = data_manager.get_new_repetition_schema()
 
     due_words = []

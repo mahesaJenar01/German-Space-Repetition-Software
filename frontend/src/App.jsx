@@ -35,6 +35,17 @@ function App() {
     setIsQuizCompleted(false);
   }, [level]);
 
+  // --- THIS IS THE FIX ---
+  // When the quiz is completed, programmatically set focus to the app container.
+  // This ensures the 'Enter' key press for the next quiz is captured without needing a click.
+  useEffect(() => {
+    if (isQuizCompleted && appContainerRef.current) {
+      appContainerRef.current.focus({ preventScroll: true });
+    }
+  }, [isQuizCompleted]);
+  // --- END OF FIX ---
+
+
   // Calculate accuracy for the stats bar
   const totalCorrect = Object.values(todayStats.correct_by_level).reduce((sum, count) => sum + count, 0);
   const totalWrong = Object.values(todayStats.wrong_by_level).reduce((sum, count) => sum + count, 0);

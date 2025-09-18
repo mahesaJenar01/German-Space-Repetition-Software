@@ -36,9 +36,13 @@ def update_words():
         if not word_lvl: continue
 
         stats = all_level_data[word_lvl].setdefault(word, data_manager.get_new_repetition_schema())
+        original_next_show_date = stats.get('next_show_date')
         daily_wrong_count = daily_wrong_counts_today.get(word, 0)
         updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count)
-        all_level_data[word_lvl][word] = updated_stats
+        final_stats = word_updater.adjust_schedule_for_forced_word(
+            updated_stats, result, original_next_show_date
+        )
+        all_level_data[word_lvl][word] = final_stats
         changed_files_results.add(word_lvl)
 
     # 4. --- NEW: Process Rival Mastery ---

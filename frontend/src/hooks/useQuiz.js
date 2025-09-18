@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../services/api';
-import { createQuizItems, rehydrateQuizAnswers } from '../utils/quizProcessor'; // Import rehydrate function
+import { createQuizItems, rehydrateQuizAnswers } from '../utils/quizProcessor';
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
 const SESSION_KEY_PREFIX = 'vocabularyQuizSession_';
@@ -22,13 +22,10 @@ export const useQuiz = (level) => {
           const parsedData = JSON.parse(sessionData);
           if (parsedData.date === today && parsedData.level === level) {
             console.log(`Restoring quiz for level ${level} from session.`);
-            
-            // --- MODIFICATION: Rehydrate the answers ---
             const rehydratedItems = rehydrateQuizAnswers(parsedData.quizItems, parsedData.allWords);
-            setQuizItems(rehydratedItems); // Set state with full items (including answers)
-            
+            setQuizItems(rehydratedItems);
             setAllWords(parsedData.allWords);
-            setFeedback(parsedData.feedback); 
+            setFeedback(parsedData.feedback || 'Fill all fields and press Enter to submit.'); // Use saved feedback or default
             setIsLoading(false);
             return { restored: true, data: parsedData };
           }
@@ -36,11 +33,12 @@ export const useQuiz = (level) => {
       }
     }
 
-    sessionStorage.removeItem(sessionKey);
+    sessionStorage.removeItem(sessionKey); // Clear old session data before fetching new
 
     setIsLoading(true);
     setQuizItems([]);
-    setFeedback('Fill all fields and press Enter to submit.');
+    const initialFeedback = 'Fill all fields and press Enter to submit.';
+    setFeedback(initialFeedback);
 
     try {
       const wordsDetails = await api.fetchWordDetails(level);
@@ -59,6 +57,24 @@ export const useQuiz = (level) => {
       const newQuizItems = createQuizItems(wordsDetails, wordsStats);
       setQuizItems(newQuizItems);
       
+      // --- THIS IS THE FIX ---
+      // After fetching a new quiz, save it to sessionStorage for the current day.
+      // We sanitize the quiz items by removing the correctAnswers to save space
+      // and avoid storing answers in the browser's storage.
+      const sanitizedQuizItems = newQuizItems.map(({ correctAnswers, ...item }) => item);
+      
+      const sessionPayload = {
+        date: today,
+        level: level,
+        quizItems: sanitizedQuizItems, // Save the version without answers
+        allWords: wordsDetails,
+        feedback: initialFeedback,
+      };
+      
+      sessionStorage.setItem(sessionKey, JSON.stringify(sessionPayload));
+      console.log(`Saved new quiz for level ${level} to session.`);
+      // --- END OF FIX ---
+
       return { restored: false, data: { quizItems: newQuizItems, allWords: wordsDetails } };
     } catch (error) {
       console.error("Failed to fetch words:", error);

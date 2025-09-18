@@ -65,7 +65,7 @@ def weighted_random_selection(words_with_priorities, count=5):
 
 def select_quiz_words(level, word_to_level_map):
     """
-    Main logic for selecting words, now with "Rival Word" injection.
+    Main logic for selecting words, with aggressive "Rival Word" injection.
     """
     all_word_details = {}
     all_repetition_stats = {}
@@ -89,6 +89,7 @@ def select_quiz_words(level, word_to_level_map):
         is_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
         if is_due: due_words.append(word)
 
+    # ... (candidate pool logic is unchanged, it correctly filters for daily limits) ...
     report_data = report_manager.load_report_data()
     today_str = datetime.now().strftime('%Y-%m-%d')
     seen_today_by_level = report_data.get('daily_seen_words', {}).get(today_str, {})
@@ -104,7 +105,7 @@ def select_quiz_words(level, word_to_level_map):
         elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT: candidate_pool.append(word)
 
     if not candidate_pool: return []
-
+    
     words_with_priorities = []
     for word in candidate_pool:
         if word in all_word_details:
@@ -113,48 +114,56 @@ def select_quiz_words(level, word_to_level_map):
             priority = calculate_word_priority(stats, word_details)
             words_with_priorities.append((word, priority))
 
-    # --- RIVAL WORD INJECTION LOGIC ---
     initial_selection_keys = weighted_random_selection(words_with_priorities, 5)
-    final_selection_keys = list(initial_selection_keys) # Make a mutable copy
+    final_selection_keys = list(initial_selection_keys)
     rival_pair = None
 
-    # Sort the initial selection by priority to find the weakest link
     initial_selection_with_priority = sorted(
         [item for item in words_with_priorities if item[0] in initial_selection_keys],
         key=lambda x: x[1]
     )
 
-    for word_key, priority in reversed(initial_selection_with_priority): # Check high-priority words first
+    for word_key, priority in reversed(initial_selection_with_priority):
         stats = all_repetition_stats.get(word_key, {})
         confusions = stats.get('confused_with', {})
         
-        # Find the most confused rival word that meets the threshold
         for rival_key, count in confusions.items():
-            if count >= RIVAL_CONFUSION_THRESHOLD and rival_key in due_words and rival_key not in final_selection_keys:
-                # Found a rival to inject!
-                word_to_replace = initial_selection_with_priority[0][0] # The one with lowest priority
+            # --- START OF MODIFIED LOGIC ---
+            word_A_level = word_to_level_map.get(word_key)
+            rival_B_level = word_to_level_map.get(rival_key)
+
+            if not (word_A_level and rival_B_level): continue
+            
+            is_same_level = word_A_level == rival_B_level
+            
+            # Rule: If same level, ANY confusion triggers. Otherwise, use threshold.
+            should_trigger = is_same_level or count >= RIVAL_CONFUSION_THRESHOLD
+
+            # Rule: We REMOVED the `rival_key in due_words` check to allow forceful injection.
+            # The rival must exist in the system and not already be in the quiz.
+            if should_trigger and rival_key in all_repetition_stats and rival_key not in final_selection_keys:
+                word_to_replace = initial_selection_with_priority[0][0]
                 
-                # Make sure we don't replace the word we are checking against
                 if word_to_replace == word_key: 
                     if len(initial_selection_with_priority) > 1:
                         word_to_replace = initial_selection_with_priority[1][0]
                     else:
-                        continue # Cannot replace if only one word
+                        continue
 
-                # Perform the replacement
                 final_selection_keys[final_selection_keys.index(word_to_replace)] = rival_key
                 rival_pair = (word_key, rival_key)
-                break # Inject only one pair per quiz
+                print(f"Injecting rival '{rival_key}' for '{word_key}'. Same-level trigger: {is_same_level}")
+                break
+            # --- END OF MODIFIED LOGIC ---
         if rival_pair:
             break
 
-    # Prepare final word details, adding rival group info if applicable
     final_word_details = []
     for word_key in final_selection_keys:
         if word_key in all_word_details:
             detail = all_word_details[word_key].copy()
             if rival_pair and word_key in rival_pair:
-                detail['rival_group'] = 1 # Mark this word as part of a rival pair
+                detail['rival_group'] = 1 
             final_word_details.append(detail)
             
     return final_word_details

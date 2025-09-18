@@ -160,3 +160,26 @@ def process_rival_mastery(results, all_level_data, word_level_map):
                     changed_files.add(word_B_level)
 
     return all_level_data, changed_files
+
+def adjust_schedule_for_forced_word(stats, result, original_next_show_date_str):
+    """
+    If a word was not due but was forced into a quiz (as a rival) and answered
+    correctly, this function adjusts its schedule to prevent it from showing again
+    too soon.
+    """
+    if result.get('result_type') != 'PERFECT_MATCH' or not original_next_show_date_str:
+        return stats # Only act on perfect matches for words that had a schedule
+
+    today = datetime.now().date()
+    original_next_show_date = datetime.fromisoformat(original_next_show_date_str).date()
+
+    # Check if the word was answered correctly *before* it was due
+    if original_next_show_date > today:
+        # The user mastered a forced, not-due word.
+        # Instead of letting the normal logic push its date far into the future,
+        # we'll just push it by one day from today as a small reward.
+        new_next_show_date = datetime.now() + timedelta(days=1)
+        stats['next_show_date'] = new_next_show_date.isoformat()
+        print(f"Adjusted schedule for forced word '{result.get('word')}' to tomorrow.")
+
+    return stats

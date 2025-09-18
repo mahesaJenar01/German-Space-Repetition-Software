@@ -21,6 +21,13 @@ def update_reports_from_results(report_data, results, word_level_map, word_detai
         result_type = result.get('result_type')
         is_correct = result_type == "PERFECT_MATCH"
 
+        # --- THIS IS THE FIX ---
+        # Add the word to the list of unique words seen today for its level.
+        seen_words_for_level = daily_seen.setdefault(word_lvl, [])
+        if word not in seen_words_for_level:
+            seen_words_for_level.append(word)
+        # --- END OF FIX ---
+
         # Update category performance (Nomen, Verb, etc.)
         word_type = word_details.get('type')
         if word_type:

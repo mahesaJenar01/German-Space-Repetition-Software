@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import copy # <-- IMPORT THE COPY MODULE
 
 # Centralized configuration for file paths
 OUTPUT_FOLDER = Path("output")
@@ -7,7 +8,6 @@ REPETITION_FOLDER = Path("repetition-list")
 LEVELS = ["a1", "a2", "b1"]
 
 # The single source of truth for a new word's repetition stats.
-# --- THIS SCHEMA IS NOW UPGRADED FOR THE NEW SCHEDULING LOGIC ---
 REPETITION_SCHEMA = {
     "right": 0,
     "wrong": 0,
@@ -15,7 +15,6 @@ REPETITION_SCHEMA = {
     "total_encountered": 0,
     "last_seen": None,
     "last_correct": None,
-    # NEW FIELDS FOR SCHEDULED REPETITION:
     "consecutive_correct": 0,
     "streak_level": 0,
     "current_delay_days": 0,
@@ -23,14 +22,21 @@ REPETITION_SCHEMA = {
     "confused_with": {},
     "recent_history": [],
     "failed_first_encounter": False,
-    # NEW FIELDS FOR "STICKY CORRECTION" SCORE:
-    "last_result_was_wrong": False,      # Tracks if the last attempt was incorrect.
-    "successful_corrections": 0,         # Counts right answers that follow wrong ones.
+    "last_result_was_wrong": False,
+    "successful_corrections": 0,
 }
+
+# --- NEW FUNCTION TO FIX THE BUG ---
+def get_new_repetition_schema():
+    """
+    Returns a deep copy of the repetition schema to ensure mutable objects
+    like lists and dicts are not shared between different word stats.
+    """
+    return copy.deepcopy(REPETITION_SCHEMA)
 
 def load_repetition_stats(level):
     """Loads user repetition stats from a specific level's JSON file."""
-    REPETITION_FOLDER.mkdir(exist_ok=True) # Ensure folder exists
+    REPETITION_FOLDER.mkdir(exist_ok=True)
     file_path = REPETITION_FOLDER / f"{level}_repetition.json"
     if not file_path.exists():
         return {}
@@ -42,7 +48,7 @@ def load_repetition_stats(level):
 
 def save_repetition_stats(level, data):
     """Saves the repetition stats data for a specific level."""
-    REPETITION_FOLDER.mkdir(exist_ok=True) # Ensure folder exists
+    REPETITION_FOLDER.mkdir(exist_ok=True)
     file_path = REPETITION_FOLDER / f"{level}_repetition.json"
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)

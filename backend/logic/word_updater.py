@@ -83,31 +83,34 @@ def process_confusions(results, all_level_data, word_level_map):
     """Detects and records word confusions from a batch of results."""
     changed_files = set()
     incorrect_m2w_items = []
-    correct_m2w_word_map = {}
     
+    # Find all incorrect meaning-to-word questions
     for result in results:
-        if result.get('direction') == 'meaningToWord':
-            correct_word = result.get('word')
-            correct_m2w_word_map[correct_word] = result
-            if result.get('result_type') == 'NO_MATCH':
-                incorrect_m2w_items.append(result)
+        if result.get('direction') == 'meaningToWord' and result.get('result_type') == 'NO_MATCH':
+            incorrect_m2w_items.append(result)
 
     for incorrect_item in incorrect_m2w_items:
         user_answer = incorrect_item.get('user_answer', '').strip()
-        if user_answer in correct_m2w_word_map:
-            word_A = incorrect_item.get('word')
-            word_B = user_answer
+        
+        # --- THIS IS THE FIX ---
+        # Check if the user's answer is ANY valid word in our entire vocabulary,
+        # not just a word from the current quiz batch.
+        if user_answer in word_level_map:
+            word_A = incorrect_item.get('word') # The correct word (e.g., "legen")
+            word_B = user_answer               # The confused word (e.g., "liegen")
             if word_A == word_B: continue
 
             level_A = word_level_map.get(word_A)
             level_B = word_level_map.get(word_B)
 
             if level_A and level_B:
-                stats_A = all_level_data[level_A].setdefault(word_A, data_manager.REPETITION_SCHEMA.copy())
+                # Update stats for word A
+                stats_A = all_level_data[level_A].setdefault(word_A, data_manager.get_new_repetition_schema())
                 confusions_A = stats_A.setdefault('confused_with', {})
                 confusions_A[word_B] = confusions_A.get(word_B, 0) + 1
                 
-                stats_B = all_level_data[level_B].setdefault(word_B, data_manager.REPETITION_SCHEMA.copy())
+                # Update stats for word B
+                stats_B = all_level_data[level_B].setdefault(word_B, data_manager.get_new_repetition_schema())
                 confusions_B = stats_B.setdefault('confused_with', {})
                 confusions_B[word_A] = confusions_B.get(word_A, 0) + 1
                 

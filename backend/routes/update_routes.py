@@ -3,7 +3,7 @@ from datetime import datetime
 import data_manager
 import report_manager
 from cache import get_word_to_level_map, get_word_details_map
-from logic import word_updater, report_updater # <-- NEW IMPORTS
+from logic import word_updater, report_updater
 
 update_bp = Blueprint('update_bp', __name__)
 
@@ -35,7 +35,8 @@ def update_words():
         if not word_lvl: continue
 
         # Get the word's current stats
-        stats = all_level_data[word_lvl].setdefault(word, data_manager.REPETITION_SCHEMA.copy())
+        # --- USE THE NEW FUNCTION ---
+        stats = all_level_data[word_lvl].setdefault(word, data_manager.get_new_repetition_schema())
         
         # Get how many times this specific word was wrong today
         daily_wrong_count = daily_wrong_counts_today.get(word, 0)

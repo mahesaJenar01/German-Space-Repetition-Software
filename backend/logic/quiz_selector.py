@@ -81,7 +81,8 @@ def select_quiz_words(level, word_to_level_map):
 
     for word in all_word_details.keys():
         if word not in all_repetition_stats:
-            all_repetition_stats[word] = data_manager.REPETITION_SCHEMA.copy()
+            # --- USE THE NEW FUNCTION ---
+            all_repetition_stats[word] = data_manager.get_new_repetition_schema()
 
     due_words = []
     today = date.today()

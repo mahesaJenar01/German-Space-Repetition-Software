@@ -48,9 +48,14 @@ export const createQuizItems = (wordsDetails, wordsStats) => {
     const fullWordData = { ...wordDetail, ...stats };
     
     let direction;
+    // --- FIX: Prioritize rival pair direction over all else ---
+    const isRival = !!wordDetail.rival_group;
     const isNounWithArticleErrors = wordDetail.type === 'Nomen' && fullWordData.article_wrong > 0;
 
-    if (isNounWithArticleErrors) {
+    if (isRival) {
+      // Rivals should ALWAYS be meaning-to-word to test recall.
+      direction = 'meaningToWord';
+    } else if (isNounWithArticleErrors) {
       // This noun has a history of article mistakes.
       // Force the quiz direction to test the article again.
       direction = 'meaningToWord';
@@ -68,6 +73,8 @@ export const createQuizItems = (wordsDetails, wordsStats) => {
       displayAnswer: isWordToMeaning ? fullWordData.meaning : fullWordData.word,
       direction: direction,
       article_wrong: fullWordData.article_wrong || 0,
+      // --- FIX: Pass the rival_group property to the quiz item for highlighting ---
+      rival_group: wordDetail.rival_group || null,
     };
   });
 };

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import QuizContext from '../context/QuizContext';
 import * as api from '../services/api';
 
+// --- THIS IS THE FIX: Define the session key prefix to use it for removal ---
+const SESSION_KEY_PREFIX = 'vocabularyQuizSession_';
+
 /**
  * QuizManager is a context provider that encapsulates all the logic and state
  * for an active quiz session.
@@ -61,6 +64,14 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
     
     try {
       await api.updateWordStats(level, resultsPayload);
+      
+      // --- THIS IS THE FIX: Clear the session storage for this quiz ---
+      // This prevents the user from being able to refresh and re-take the same quiz.
+      const sessionKey = `${SESSION_KEY_PREFIX}${level}`;
+      sessionStorage.removeItem(sessionKey);
+      console.log(`Quiz submitted. Session for level ${level} cleared to prevent re-taking.`);
+      // --- END OF FIX ---
+
       refreshStats(); // Refresh the stats in the header
       onQuizSubmit();   // Notify App component that submission is complete
     } catch (error){

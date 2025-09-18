@@ -15,8 +15,8 @@ from .priority_metrics import (
 
 # Configuration
 DAILY_NEW_WORD_LIMIT = 100
-HARD_WORD_THRESHOLD = 3
-RIVAL_CONFUSION_THRESHOLD = 3 # <-- NEW: Min confusion count to trigger injection
+HARD_WORD_THRESHOLD = 3 # This is now only used by the updater
+RIVAL_CONFUSION_THRESHOLD = 3 
 
 def calculate_word_priority(stats, word_details):
     """
@@ -82,27 +82,31 @@ def select_quiz_words(level, word_to_level_map):
         if word not in all_repetition_stats:
             all_repetition_stats[word] = data_manager.get_new_repetition_schema()
 
+    # --- THIS IS NOW THE SINGLE SOURCE OF TRUTH FOR SCHEDULING ---
     due_words = []
     today = date.today()
     for word, stats in all_repetition_stats.items():
         next_show_str = stats.get('next_show_date')
         is_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
-        if is_due: due_words.append(word)
+        if is_due:
+            due_words.append(word)
 
-    # ... (candidate pool logic is unchanged, it correctly filters for daily limits) ...
     report_data = report_manager.load_report_data()
     today_str = datetime.now().strftime('%Y-%m-%d')
     seen_today_by_level = report_data.get('daily_seen_words', {}).get(today_str, {})
-    daily_wrong_counts = report_data.get('daily_wrong_counts', {}).get(today_str, {})
     
     candidate_pool = []
     for word in due_words:
-        if daily_wrong_counts.get(word, 0) >= HARD_WORD_THRESHOLD: continue
+        # --- THIS IS THE FIX: The conflicting rule has been removed ---
+        # No more `daily_wrong_counts` check here. We trust the `due_words` list.
         word_level = word_to_level_map.get(word)
         if not word_level: continue
+        
         seen_words_for_this_level = seen_today_by_level.get(word_level, [])
-        if word in seen_words_for_this_level: candidate_pool.append(word)
-        elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT: candidate_pool.append(word)
+        if word in seen_words_for_this_level:
+            candidate_pool.append(word)
+        elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT:
+            candidate_pool.append(word)
 
     if not candidate_pool: return []
     
@@ -128,7 +132,6 @@ def select_quiz_words(level, word_to_level_map):
         confusions = stats.get('confused_with', {})
         
         for rival_key, count in confusions.items():
-            # --- START OF MODIFIED LOGIC ---
             word_A_level = word_to_level_map.get(word_key)
             rival_B_level = word_to_level_map.get(rival_key)
 
@@ -136,11 +139,8 @@ def select_quiz_words(level, word_to_level_map):
             
             is_same_level = word_A_level == rival_B_level
             
-            # Rule: If same level, ANY confusion triggers. Otherwise, use threshold.
-            should_trigger = is_same_level or count >= RIVAL_CONFUSION_THRESHOLD
+            should_trigger = count > 0 and (is_same_level or count >= RIVAL_CONFUSION_THRESHOLD)
 
-            # Rule: We REMOVED the `rival_key in due_words` check to allow forceful injection.
-            # The rival must exist in the system and not already be in the quiz.
             if should_trigger and rival_key in all_repetition_stats and rival_key not in final_selection_keys:
                 word_to_replace = initial_selection_with_priority[0][0]
                 
@@ -154,7 +154,6 @@ def select_quiz_words(level, word_to_level_map):
                 rival_pair = (word_key, rival_key)
                 print(f"Injecting rival '{rival_key}' for '{word_key}'. Same-level trigger: {is_same_level}")
                 break
-            # --- END OF MODIFIED LOGIC ---
         if rival_pair:
             break
 

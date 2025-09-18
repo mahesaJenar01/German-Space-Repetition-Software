@@ -16,6 +16,7 @@ def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
     """Handles the spaced repetition scheduling logic."""
     today = datetime.now()
     if is_correct:
+        stats['right'] += 1
         stats['consecutive_correct'] += 1
         stats['last_correct'] = today.isoformat()
         # Reset article-specific error counter on a perfect match
@@ -38,15 +39,20 @@ def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
         stats['consecutive_correct'] = 0
         stats['streak_level'] = 0
 
-        # If it's a "hard" word, punish more severely
-        if daily_wrong_count >= HARD_WORD_THRESHOLD:
+        # --- THIS IS THE FIX ---
+        # If this current wrong answer will bring the daily total TO the threshold,
+        # trigger the "hard word" cooldown.
+        # We check for `HARD_WORD_THRESHOLD - 1` because `daily_wrong_count` is the
+        # count *before* this current failure. E.g., if count is 2, this failure is the 3rd.
+        if daily_wrong_count >= HARD_WORD_THRESHOLD - 1:
             stats['wrong'] += 2  # Extra penalty
             stats['current_delay_days'] = 1 # Force it to show up tomorrow
             stats['next_show_date'] = (today + timedelta(days=1)).isoformat()
         else:
-            # Regress the delay
+            # Regress the delay for a normal error
             new_delay = max(0, stats['current_delay_days'] - stats['streak_level'])
             stats['current_delay_days'] = new_delay
+            # If the delay becomes 0, it means show today. This is expected.
             stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat()
     return stats
 
@@ -91,9 +97,6 @@ def process_confusions(results, all_level_data, word_level_map):
     for incorrect_item in incorrect_m2w_items:
         user_answer = incorrect_item.get('user_answer', '').strip()
         
-        # --- THIS IS THE FIX ---
-        # Check if the user's answer is ANY valid word in our entire vocabulary,
-        # not just a word from the current quiz batch.
         if user_answer in word_level_map:
             word_A = incorrect_item.get('word') # The correct word (e.g., "legen")
             word_B = user_answer               # The confused word (e.g., "liegen")
@@ -118,7 +121,6 @@ def process_confusions(results, all_level_data, word_level_map):
                 
     return all_level_data, changed_files
 
-# --- NEW FUNCTION FOR RIVAL MASTERY ---
 def process_rival_mastery(results, all_level_data, word_level_map):
     """
     Checks if a known rival pair was answered correctly. If so, resets their

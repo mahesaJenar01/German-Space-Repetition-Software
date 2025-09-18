@@ -10,8 +10,18 @@ import { useDailyStats } from './hooks/useDailyStats';
 import { useWordDetail } from './hooks/useWordDetail';
 import { useHint } from './hooks/useHint';
 
+// --- THIS IS THE FIX: Define a key for localStorage ---
+const LEVEL_STORAGE_KEY = 'vocabularyAppLevel';
+
 function App() {
-  const [level, setLevel] = useState('a1');
+  // --- THIS IS THE FIX: Initialize state from localStorage ---
+  // Use a function to get the initial value. This runs only once on mount.
+  const [level, setLevel] = useState(() => {
+    const savedLevel = localStorage.getItem(LEVEL_STORAGE_KEY);
+    // If a level was saved, use it. Otherwise, default to 'a1'.
+    return savedLevel || 'a1';
+  });
+  
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   
   // Custom hooks for managing distinct logic
@@ -30,12 +40,15 @@ function App() {
     }
   };
   
-  // When level changes, reset the completion state
+  // --- THIS IS THE FIX: Save level to localStorage on change ---
+  // When the level changes, this effect runs.
   useEffect(() => {
+    // Save the newly selected level so it persists on refresh.
+    localStorage.setItem(LEVEL_STORAGE_KEY, level);
+    // Also reset the completion state as before.
     setIsQuizCompleted(false);
   }, [level]);
 
-  // --- THIS IS THE FIX ---
   // When the quiz is completed, programmatically set focus to the app container.
   // This ensures the 'Enter' key press for the next quiz is captured without needing a click.
   useEffect(() => {
@@ -43,7 +56,6 @@ function App() {
       appContainerRef.current.focus({ preventScroll: true });
     }
   }, [isQuizCompleted]);
-  // --- END OF FIX ---
 
 
   // Calculate accuracy for the stats bar

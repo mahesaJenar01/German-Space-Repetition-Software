@@ -11,15 +11,9 @@
 }
 
 .quiz-item-rival {
-  border-left: 4px solid #8b5cf6; /* A noticeable violet color */
-  padding-left: 1.5rem;
-  margin-left: -1.5rem; /* Offset padding to maintain alignment */
-  background-color: #f5f3ff; /* A very light violet background */
-  border-bottom-color: transparent; /* Hide bottom border for a cleaner group look */
-}
-
-.quiz-item-rival + .quiz-item-rival {
-  border-top: 1px dashed #ddd6fe; /* Separator for multiple rivals if ever needed */
+  border-left: 3px solid #a78bfa; /* A softer, lighter violet */
+  padding-left: 1.25rem;
+  margin-left: -0.25rem;
 }
 
 .quiz-item:last-child {
@@ -37,9 +31,11 @@
   line-height: 1.4;
 }
 
+/* --- THIS IS THE UPDATED STYLE FOR HINTABLE WORDS --- */
 .quiz-item .word.hintable {
     cursor: help;
-    border-bottom: 2px dashed var(--primary-green);
+    /* Changed from 'dashed' to 'solid' for a clean line */
+    border-bottom: 2px solid var(--primary-green);
     text-decoration: none;
     transition: color 0.2s, border-color 0.2s;
 }
@@ -82,7 +78,6 @@
   box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.3);
 }
 
-/* --- NEW: Proactive warning for words with article error history --- */
 .input-article-warning {
   border-color: #f59e0b !important; /* amber/orange */
 }
@@ -91,7 +86,6 @@
   border-color: #f59e0b !important; /* Keep warning color on focus */
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4) !important; /* Amber shadow on focus */
 }
-/* --- END OF NEW STYLE --- */
 
 
 .input-correct {

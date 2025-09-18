@@ -3,7 +3,6 @@ import '../styles/QuizItem.css';
 import { useQuizContext } from '../context/QuizContext';
 
 const QuizItem = ({ item, autoFocus }) => {
-  // Consume all the state and functions needed from the context
   const {
     allWords,
     inputs,
@@ -40,12 +39,10 @@ const QuizItem = ({ item, autoFocus }) => {
       if (result && result.startsWith('PARTIAL_MATCH')) return 'input-partial';
       return '';
     }
-    
     const hasArticleErrorHistory = item.article_wrong > 0;
     if (item.direction === 'meaningToWord' && hasArticleErrorHistory) {
       return 'input-article-warning';
     }
-
     return '';
   };
   
@@ -83,9 +80,12 @@ const QuizItem = ({ item, autoFocus }) => {
   };
 
   const itemWordDetails = allWords.find(word => word.word === item.key);
+  
+  // --- DYNAMIC CLASS FOR RIVAL HIGHLIGHTING ---
+  const containerClassName = `quiz-item ${item.rival_group ? 'quiz-item-rival' : ''}`;
 
   return (
-    <div className="quiz-item" key={item.key}>
+    <div className={containerClassName} key={item.key}>
       <span
          className={getWordClassName()}
          onClick={handleWordClick}

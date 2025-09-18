@@ -7,6 +7,19 @@
   box-sizing: border-box;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.3s ease;
+}
+
+.quiz-item-rival {
+  border-left: 4px solid #8b5cf6; /* A noticeable violet color */
+  padding-left: 1.5rem;
+  margin-left: -1.5rem; /* Offset padding to maintain alignment */
+  background-color: #f5f3ff; /* A very light violet background */
+  border-bottom-color: transparent; /* Hide bottom border for a cleaner group look */
+}
+
+.quiz-item-rival + .quiz-item-rival {
+  border-top: 1px dashed #ddd6fe; /* Separator for multiple rivals if ever needed */
 }
 
 .quiz-item:last-child {

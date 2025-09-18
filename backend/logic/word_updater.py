@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import data_manager
 
-# Configuration
 HISTORY_MAX_LENGTH = 10
 HARD_WORD_THRESHOLD = 3
 
@@ -117,4 +116,47 @@ def process_confusions(results, all_level_data, word_level_map):
                 changed_files.add(level_A)
                 changed_files.add(level_B)
                 
+    return all_level_data, changed_files
+
+# --- NEW FUNCTION FOR RIVAL MASTERY ---
+def process_rival_mastery(results, all_level_data, word_level_map):
+    """
+    Checks if a known rival pair was answered correctly. If so, resets their
+    confusion count to resolve the link.
+    """
+    changed_files = set()
+    results_map = {r['word']: r for r in results}
+
+    for result in results:
+        word_A_key = result.get('word')
+        word_A_level = word_level_map.get(word_A_key)
+        if not word_A_level: continue
+
+        stats_A = all_level_data[word_A_level].get(word_A_key, {})
+        confusions_A = stats_A.get('confused_with', {})
+
+        # Iterate through known confusions for this word
+        for word_B_key, count in confusions_A.items():
+            # Check if the rival word was also in this quiz
+            if word_B_key in results_map:
+                result_A = results_map[word_A_key]
+                result_B = results_map[word_B_key]
+                word_B_level = word_level_map.get(word_B_key)
+                if not word_B_level: continue
+
+                # Check for mastery: both must be a perfect match
+                if result_A.get('result_type') == 'PERFECT_MATCH' and \
+                   result_B.get('result_type') == 'PERFECT_MATCH':
+                    
+                    # Reset the confusion count for both words
+                    stats_A['confused_with'][word_B_key] = 0
+                    
+                    stats_B = all_level_data[word_B_level].get(word_B_key, {})
+                    if 'confused_with' in stats_B:
+                        stats_B['confused_with'][word_A_key] = 0
+
+                    print(f"Rivalry mastered between '{word_A_key}' and '{word_B_key}'. Resetting confusion count.")
+                    changed_files.add(word_A_level)
+                    changed_files.add(word_B_level)
+
     return all_level_data, changed_files

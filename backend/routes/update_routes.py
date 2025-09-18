@@ -19,45 +19,42 @@ def update_words():
     # 1. Load all necessary data and caches
     all_level_data = {lvl: data_manager.load_repetition_stats(lvl) for lvl in data_manager.LEVELS}
     report_data = report_manager.load_report_data()
-    report_data['today_str'] = datetime.now().strftime('%Y-%m-%d') # Add today's date for helpers
+    report_data['today_str'] = datetime.now().strftime('%Y-%m-%d')
     
     word_level_map = get_word_to_level_map()
     word_details_map = get_word_details_map()
 
-    # 2. Process confusions first (as it might update stats for words not in this quiz)
-    all_level_data, changed_files = word_updater.process_confusions(results, all_level_data, word_level_map)
+    # 2. Process confusions first
+    all_level_data, changed_files_conf = word_updater.process_confusions(results, all_level_data, word_level_map)
 
-    # 3. Process each quiz result to update word repetition stats
+    # 3. Process individual quiz results
     daily_wrong_counts_today = report_data.get('daily_wrong_counts', {}).get(report_data['today_str'], {})
+    changed_files_results = set()
     for result in results:
         word = result.get('word')
         word_lvl = word_level_map.get(word)
         if not word_lvl: continue
 
-        # Get the word's current stats
-        # --- USE THE NEW FUNCTION ---
         stats = all_level_data[word_lvl].setdefault(word, data_manager.get_new_repetition_schema())
-        
-        # Get how many times this specific word was wrong today
         daily_wrong_count = daily_wrong_counts_today.get(word, 0)
-        
-        # Call the pure update function to get the new state
         updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count)
-        
-        # Place the new state back into our main data object
         all_level_data[word_lvl][word] = updated_stats
-        changed_files.add(word_lvl)
+        changed_files_results.add(word_lvl)
 
-    # 4. Update the performance reports in a single, separate step
+    # 4. --- NEW: Process Rival Mastery ---
+    all_level_data, changed_files_mastery = word_updater.process_rival_mastery(results, all_level_data, word_level_map)
+
+    # 5. Update performance reports
     report_data = report_updater.update_reports_from_results(
         report_data, results, word_level_map, word_details_map
     )
 
-    # 5. Save all changes to disk
-    for lvl in changed_files:
+    # 6. Save all changes to disk
+    all_changed_files = changed_files_conf.union(changed_files_results, changed_files_mastery)
+    for lvl in all_changed_files:
         data_manager.save_repetition_stats(lvl, all_level_data[lvl])
     
-    if 'today_str' in report_data: del report_data['today_str'] # Clean up temporary key
+    if 'today_str' in report_data: del report_data['today_str']
     report_manager.save_report_data(report_data)
 
     return jsonify({"status": "success", "message": f"Updated {len(results)} words."})

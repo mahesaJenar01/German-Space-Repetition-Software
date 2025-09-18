@@ -10,32 +10,29 @@ from .priority_metrics import (
     recency,
     stickiness,
     volatility,
-    confusion,  # <-- IMPORT THE NEW METRIC
+    confusion,
 )
 
 # Configuration
 DAILY_NEW_WORD_LIMIT = 100
-HARD_WORD_THRESHOLD = 3  # Max number of wrongs in a day
+HARD_WORD_THRESHOLD = 3
+RIVAL_CONFUSION_THRESHOLD = 3 # <-- NEW: Min confusion count to trigger injection
 
 def calculate_word_priority(stats, word_details):
     """
     Aggregates scores from various metrics to determine a word's final priority.
     The role of this function is to orchestrate, not to calculate.
     """
-    # Boost for words failed on the first encounter
     first_encounter_boost = 10 if stats.get('failed_first_encounter', False) else 0
-
-    # Sum scores from all modular metric calculators
     total_priority = (
         accuracy.calculate_accuracy_score(stats) +
         recency.calculate_recency_score(stats) +
         volatility.calculate_volatility_score(stats) +
         article_weakness.calculate_article_weakness_score(stats, word_details) +
         stickiness.calculate_stickiness_score(stats) +
-        confusion.calculate_confusion_score(stats) +  # <-- ADD THE NEW SCORE TO THE SUM
+        confusion.calculate_confusion_score(stats) +
         first_encounter_boost
     )
-
     return min(total_priority, 100)
 
 
@@ -68,7 +65,7 @@ def weighted_random_selection(words_with_priorities, count=5):
 
 def select_quiz_words(level, word_to_level_map):
     """
-    Main logic for selecting words, factoring in all performance metrics.
+    Main logic for selecting words, now with "Rival Word" injection.
     """
     all_word_details = {}
     all_repetition_stats = {}
@@ -111,10 +108,53 @@ def select_quiz_words(level, word_to_level_map):
     words_with_priorities = []
     for word in candidate_pool:
         if word in all_word_details:
-            stats = all_repetition_stats[word]
+            stats = all_repetition_stats.get(word, {})
             word_details = all_word_details[word]
             priority = calculate_word_priority(stats, word_details)
             words_with_priorities.append((word, priority))
 
-    selected_word_keys = weighted_random_selection(words_with_priorities, 5)
-    return [all_word_details[word] for word in selected_word_keys if word in all_word_details]
+    # --- RIVAL WORD INJECTION LOGIC ---
+    initial_selection_keys = weighted_random_selection(words_with_priorities, 5)
+    final_selection_keys = list(initial_selection_keys) # Make a mutable copy
+    rival_pair = None
+
+    # Sort the initial selection by priority to find the weakest link
+    initial_selection_with_priority = sorted(
+        [item for item in words_with_priorities if item[0] in initial_selection_keys],
+        key=lambda x: x[1]
+    )
+
+    for word_key, priority in reversed(initial_selection_with_priority): # Check high-priority words first
+        stats = all_repetition_stats.get(word_key, {})
+        confusions = stats.get('confused_with', {})
+        
+        # Find the most confused rival word that meets the threshold
+        for rival_key, count in confusions.items():
+            if count >= RIVAL_CONFUSION_THRESHOLD and rival_key in due_words and rival_key not in final_selection_keys:
+                # Found a rival to inject!
+                word_to_replace = initial_selection_with_priority[0][0] # The one with lowest priority
+                
+                # Make sure we don't replace the word we are checking against
+                if word_to_replace == word_key: 
+                    if len(initial_selection_with_priority) > 1:
+                        word_to_replace = initial_selection_with_priority[1][0]
+                    else:
+                        continue # Cannot replace if only one word
+
+                # Perform the replacement
+                final_selection_keys[final_selection_keys.index(word_to_replace)] = rival_key
+                rival_pair = (word_key, rival_key)
+                break # Inject only one pair per quiz
+        if rival_pair:
+            break
+
+    # Prepare final word details, adding rival group info if applicable
+    final_word_details = []
+    for word_key in final_selection_keys:
+        if word_key in all_word_details:
+            detail = all_word_details[word_key].copy()
+            if rival_pair and word_key in rival_pair:
+                detail['rival_group'] = 1 # Mark this word as part of a rival pair
+            final_word_details.append(detail)
+            
+    return final_word_details

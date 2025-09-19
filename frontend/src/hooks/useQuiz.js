@@ -10,6 +10,7 @@ export const useQuiz = (level) => {
   const [allWords, setAllWords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedback, setFeedback] = useState('Fill all fields and press Enter to submit.');
+  const [dailySessionInfo, setDailySessionInfo] = useState(null); // <-- NEW STATE
 
   const fetchWords = useCallback(async (forceRefetch = false) => {
     const today = getTodayString();
@@ -25,7 +26,8 @@ export const useQuiz = (level) => {
             const rehydratedItems = rehydrateQuizAnswers(parsedData.quizItems, parsedData.allWords);
             setQuizItems(rehydratedItems);
             setAllWords(parsedData.allWords);
-            setFeedback(parsedData.feedback || 'Fill all fields and press Enter to submit.'); // Use saved feedback or default
+            setDailySessionInfo(parsedData.dailySessionInfo); // <-- RESTORE SESSION INFO
+            setFeedback(parsedData.feedback || 'Fill all fields and press Enter to submit.');
             setIsLoading(false);
             return { restored: true, data: parsedData };
           }
@@ -33,7 +35,7 @@ export const useQuiz = (level) => {
       }
     }
 
-    sessionStorage.removeItem(sessionKey); // Clear old session data before fetching new
+    sessionStorage.removeItem(sessionKey);
 
     setIsLoading(true);
     setQuizItems([]);
@@ -41,39 +43,38 @@ export const useQuiz = (level) => {
     setFeedback(initialFeedback);
 
     try {
-      const wordsDetails = await api.fetchWordDetails(level);
+      const responseData = await api.fetchWordDetails(level);
+      const { quiz_words: wordsDetails, session_info: sessionInfo } = responseData;
 
       if (wordsDetails.length === 0) {
         setFeedback('No more words to be displayed, congratulations!');
         setAllWords([]);
         setQuizItems([]);
+        setDailySessionInfo(sessionInfo); // Set session info even if quiz is empty
         return { restored: false, data: null };
       }
 
       setAllWords(wordsDetails);
+      setDailySessionInfo(sessionInfo); // <-- SET SESSION INFO FROM API
       const wordKeys = wordsDetails.map(word => word.word);
       const wordsStats = await api.fetchWordStats(wordKeys, level);
       
       const newQuizItems = createQuizItems(wordsDetails, wordsStats);
       setQuizItems(newQuizItems);
       
-      // --- THIS IS THE FIX ---
-      // After fetching a new quiz, save it to sessionStorage for the current day.
-      // We sanitize the quiz items by removing the correctAnswers to save space
-      // and avoid storing answers in the browser's storage.
       const sanitizedQuizItems = newQuizItems.map(({ correctAnswers, ...item }) => item);
       
       const sessionPayload = {
         date: today,
         level: level,
-        quizItems: sanitizedQuizItems, // Save the version without answers
+        quizItems: sanitizedQuizItems,
         allWords: wordsDetails,
+        dailySessionInfo: sessionInfo, // <-- SAVE SESSION INFO
         feedback: initialFeedback,
       };
       
       sessionStorage.setItem(sessionKey, JSON.stringify(sessionPayload));
       console.log(`Saved new quiz for level ${level} to session.`);
-      // --- END OF FIX ---
 
       return { restored: false, data: { quizItems: newQuizItems, allWords: wordsDetails } };
     } catch (error) {
@@ -89,5 +90,5 @@ export const useQuiz = (level) => {
     fetchWords();
   }, [level, fetchWords]);
 
-  return { quizItems, allWords, isLoading, feedback, setFeedback, fetchWords };
+  return { quizItems, allWords, isLoading, feedback, setFeedback, fetchWords, dailySessionInfo }; // <-- RETURN SESSION INFO
 };

@@ -7,6 +7,11 @@ OUTPUT_FOLDER = Path("output")
 REPETITION_FOLDER = Path("repetition-list")
 LEVELS = ["a1", "a2", "b1"]
 
+# --- NEW: Centralized gameplay configuration ---
+DAILY_NEW_WORD_LIMIT = 100
+MASTERY_GOAL = 3           # 3 consecutive correct answers for mastery
+FAILURE_THRESHOLD = 3      # 3 total wrong answers for failure
+
 # The single source of truth for a new word's repetition stats.
 REPETITION_SCHEMA = {
     "right": 0,

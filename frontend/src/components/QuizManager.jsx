@@ -2,20 +2,18 @@ import React, { useState, useEffect } from 'react';
 import QuizContext from '../context/QuizContext';
 import * as api from '../services/api';
 
-// --- THIS IS THE FIX: Define the session key prefix to use it for removal ---
 const SESSION_KEY_PREFIX = 'vocabularyQuizSession_';
 
 /**
  * QuizManager is a context provider that encapsulates all the logic and state
  * for an active quiz session.
  */
-const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFeedback, refreshStats, onWordClick, onShowHint, onHideHint }) => {
+const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFeedback, refreshStats, updateProgress, onWordClick, onShowHint, onHideHint }) => {
   const [inputs, setInputs] = useState({});
   const [results, setResults] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const inputRefs = React.useRef({});
 
-  // Initialize or clear inputs when a new set of quiz items is provided
   useEffect(() => {
     if (quizItems.length > 0) {
       const initialInputs = quizItems.reduce((acc, item) => ({ ...acc, [item.key]: '' }), {});
@@ -65,12 +63,15 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
     try {
       await api.updateWordStats(level, resultsPayload);
       
-      // --- THIS IS THE FIX: Clear the session storage for this quiz ---
-      // This prevents the user from being able to refresh and re-take the same quiz.
       const sessionKey = `${SESSION_KEY_PREFIX}${level}`;
       sessionStorage.removeItem(sessionKey);
       console.log(`Quiz submitted. Session for level ${level} cleared to prevent re-taking.`);
-      // --- END OF FIX ---
+
+      // --- NEW LOGIC: UPDATE THE DAILY PROGRESS BAR ---
+      if (updateProgress) {
+        updateProgress(resultsPayload);
+      }
+      // --- END OF NEW LOGIC ---
 
       refreshStats(); // Refresh the stats in the header
       onQuizSubmit();   // Notify App component that submission is complete
@@ -90,7 +91,6 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
     }
   };
 
-  // The value provided to all consumer components
   const contextValue = {
     quizItems,
     allWords,

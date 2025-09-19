@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 import data_manager
-from logic import quiz_selector # <-- UPDATED IMPORT
+from logic import quiz_selector
 from cache import get_word_to_level_map
 
 quiz_bp = Blueprint('quiz_bp', __name__)
@@ -11,13 +11,16 @@ def get_word_details(level):
         return jsonify({"error": "Invalid level specified"}), 400
 
     word_map = get_word_to_level_map()
-    # Call the refactored selection logic
-    words_to_send = quiz_selector.select_quiz_words(level, word_map)
     
-    if not words_to_send:
-        return jsonify([]), 200
+    # Call the refactored selection logic which now returns a dictionary
+    selection_result = quiz_selector.select_quiz_words(level, word_map)
+    
+    # The quiz is empty if there are no more due words
+    if not selection_result["quiz_words"]:
+        # Still return the session info so the frontend knows the level context
+        return jsonify(selection_result), 200
 
-    return jsonify(words_to_send)
+    return jsonify(selection_result)
 
 @quiz_bp.route('/api/stats', methods=['POST'])
 def get_stats():

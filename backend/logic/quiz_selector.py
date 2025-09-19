@@ -14,8 +14,6 @@ from .priority_metrics import (
 )
 
 # Configuration
-DAILY_NEW_WORD_LIMIT = 100
-HARD_WORD_THRESHOLD = 3 # This is now only used by the updater
 RIVAL_CONFUSION_THRESHOLD = 3 
 
 def calculate_word_priority(stats, word_details):
@@ -65,7 +63,7 @@ def weighted_random_selection(words_with_priorities, count=5):
 
 def select_quiz_words(level, word_to_level_map):
     """
-    Main logic for selecting words, with aggressive "Rival Word" injection.
+    Main logic for selecting words, returning both the words and session metadata.
     """
     all_word_details = {}
     all_repetition_stats = {}
@@ -76,13 +74,21 @@ def select_quiz_words(level, word_to_level_map):
         all_word_details.update(data_manager.load_output_words(lvl))
         all_repetition_stats.update(data_manager.load_repetition_stats(lvl))
 
-    if not all_word_details: return []
+    # --- THIS IS THE FIX: Create the session info payload ---
+    session_info = {
+        "daily_word_limit": data_manager.DAILY_NEW_WORD_LIMIT,
+        "total_words_in_level": len(all_word_details),
+        "mastery_goal": data_manager.MASTERY_GOAL,
+        "failure_threshold": data_manager.FAILURE_THRESHOLD,
+    }
+
+    if not all_word_details:
+        return {"quiz_words": [], "session_info": session_info}
 
     for word in all_word_details.keys():
         if word not in all_repetition_stats:
             all_repetition_stats[word] = data_manager.get_new_repetition_schema()
 
-    # --- THIS IS NOW THE SINGLE SOURCE OF TRUTH FOR SCHEDULING ---
     due_words = []
     today = date.today()
     for word, stats in all_repetition_stats.items():
@@ -97,18 +103,17 @@ def select_quiz_words(level, word_to_level_map):
     
     candidate_pool = []
     for word in due_words:
-        # --- THIS IS THE FIX: The conflicting rule has been removed ---
-        # No more `daily_wrong_counts` check here. We trust the `due_words` list.
         word_level = word_to_level_map.get(word)
         if not word_level: continue
         
         seen_words_for_this_level = seen_today_by_level.get(word_level, [])
         if word in seen_words_for_this_level:
             candidate_pool.append(word)
-        elif len(seen_words_for_this_level) < DAILY_NEW_WORD_LIMIT:
+        elif len(seen_words_for_this_level) < data_manager.DAILY_NEW_WORD_LIMIT:
             candidate_pool.append(word)
 
-    if not candidate_pool: return []
+    if not candidate_pool:
+        return {"quiz_words": [], "session_info": session_info}
     
     words_with_priorities = []
     for word in candidate_pool:
@@ -165,4 +170,5 @@ def select_quiz_words(level, word_to_level_map):
                 detail['rival_group'] = 1 
             final_word_details.append(detail)
             
-    return final_word_details
+    # --- THIS IS THE FIX: Return the full payload ---
+    return {"quiz_words": final_word_details, "session_info": session_info}

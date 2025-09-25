@@ -4,7 +4,6 @@ import { useQuizContext } from '../context/QuizContext';
 
 const QuizItem = ({ item, autoFocus }) => {
   const {
-    allWords,
     inputs,
     results,
     isSubmitted,
@@ -20,7 +19,8 @@ const QuizItem = ({ item, autoFocus }) => {
     
   const handleWordClick = () => {
     if(isSubmitted){
-      onWordClick(item.key)
+      // --- UPDATED: Pass the full meaning object for this specific item ---
+      onWordClick(item.fullDetails);
     }
   }
 
@@ -79,9 +79,9 @@ const QuizItem = ({ item, autoFocus }) => {
     }
   };
 
-  const itemWordDetails = allWords.find(word => word.word === item.key);
+  // --- UPDATED: item.fullDetails now holds all the info for hints ---
+  const itemWordDetails = item.fullDetails;
   
-  // --- DYNAMIC CLASS FOR RIVAL HIGHLIGHTING ---
   const containerClassName = `quiz-item ${item.rival_group ? 'quiz-item-rival' : ''}`;
 
   return (

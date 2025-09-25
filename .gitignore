@@ -18,6 +18,11 @@ performance-report/
 output/
 input/
 
+transform_data.py
+migrate_keys.py
+output_backup/
+repetition-list_backup/
+
 # Ignore generated log files
 log_info.txt
 

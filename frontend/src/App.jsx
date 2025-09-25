@@ -4,13 +4,13 @@ import QuizContainer from './components/QuizContainer';
 import WordDetail from './components/WordDetail';
 import HintCard from './components/HintCard';
 import QuizManager from './components/QuizManager';
-import ProgressBar from './components/ProgressBar';
+// import ProgressBar from './components/ProgressBar'; // --- REMOVED ---
 import './App.css';
 import { useQuiz } from './hooks/useQuiz';
 import { useDailyStats } from './hooks/useDailyStats';
 import { useWordDetail } from './hooks/useWordDetail';
 import { useHint } from './hooks/useHint';
-import { useDailyProgress } from './hooks/useDailyProgress';
+// import { useDailyProgress } from './hooks/useDailyProgress'; // --- REMOVED ---
 
 const LEVEL_STORAGE_KEY = 'vocabularyAppLevel';
 
@@ -22,11 +22,11 @@ function App() {
   
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   
-  const { quizItems, allWords, isLoading, feedback, setFeedback, fetchWords, dailySessionInfo } = useQuiz(level); // <-- GET SESSION INFO
+  const { quizItems, allWords, isLoading, feedback, setFeedback, fetchWords, dailySessionInfo } = useQuiz(level);
   const { practicedToday, todayStats, refreshStats } = useDailyStats();
   const { selectedWord, showWordDetail, closeWordDetail } = useWordDetail();
   const { hintData, hintPosition, showHint, hideHint } = useHint();
-  const { progress, updateProgress } = useDailyProgress(level, dailySessionInfo); // <-- PASS SESSION INFO
+  // const { progress, updateProgress } = useDailyProgress(level, dailySessionInfo); // --- REMOVED ---
 
   const appContainerRef = useRef(null);
   
@@ -66,8 +66,7 @@ function App() {
         <span>Overall Accuracy: <strong>{`${overallAccuracy}%`}</strong></span>
       </div>
       
-      {/* --- FIX: Only render progress bar when session info is ready --- */}
-      {level !== 'mix' && dailySessionInfo && <ProgressBar progress={progress} />}
+      {/* --- REMOVED the ProgressBar component from here --- */}
       
       <LevelSelector level={level} setLevel={setLevel} />
       
@@ -78,11 +77,10 @@ function App() {
           allWords={allWords}
           setFeedback={setFeedback}
           refreshStats={refreshStats}
-          updateProgress={updateProgress}
+          // updateProgress={updateProgress} // --- REMOVED ---
           onQuizSubmit={() => setIsQuizCompleted(true)}
-          onWordClick={(wordKey) => {
-            const wordDetails = allWords.find(word => word.word === wordKey);
-            showWordDetail(wordDetails);
+          onWordClick={(wordDetailsObject) => {
+            showWordDetail(wordDetailsObject);
           }}
           onShowHint={showHint}
           onHideHint={hideHint}

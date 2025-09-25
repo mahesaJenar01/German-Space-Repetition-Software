@@ -4,11 +4,7 @@ import * as api from '../services/api';
 
 const SESSION_KEY_PREFIX = 'vocabularyQuizSession_';
 
-/**
- * QuizManager is a context provider that encapsulates all the logic and state
- * for an active quiz session.
- */
-const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFeedback, refreshStats, updateProgress, onWordClick, onShowHint, onHideHint }) => {
+const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFeedback, refreshStats, /* updateProgress, */ onWordClick, onShowHint, onHideHint }) => {
   const [inputs, setInputs] = useState({});
   const [results, setResults] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -32,8 +28,9 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
     const resultsPayload = [];
 
     quizItems.forEach(item => {
+      const wordDetail = item.fullDetails; 
       const correctAnswersSet = new Set(item.correctAnswers);
-      const wordDetail = allWords.find(w => w.word === item.key);
+      
       let userAnswer = (inputs[item.key] || "").trim();
       const isNounTest = wordDetail && wordDetail.type === 'Nomen' && item.direction === 'meaningToWord';
       if (!isNounTest) userAnswer = userAnswer.toLowerCase();
@@ -49,7 +46,7 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
       }
       newResults[item.key] = resultType;
       resultsPayload.push({
-        word: item.key,
+        word: item.key, 
         result_type: resultType,
         user_answer: userAnswer,
         direction: item.direction,
@@ -67,14 +64,14 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
       sessionStorage.removeItem(sessionKey);
       console.log(`Quiz submitted. Session for level ${level} cleared to prevent re-taking.`);
 
-      // --- NEW LOGIC: UPDATE THE DAILY PROGRESS BAR ---
-      if (updateProgress) {
-        updateProgress(resultsPayload);
-      }
-      // --- END OF NEW LOGIC ---
+      // --- REMOVED LOGIC: UPDATE THE DAILY PROGRESS BAR ---
+      // if (updateProgress) {
+      //   updateProgress(resultsPayload);
+      // }
+      // --- END OF REMOVED LOGIC ---
 
-      refreshStats(); // Refresh the stats in the header
-      onQuizSubmit();   // Notify App component that submission is complete
+      refreshStats(); 
+      onQuizSubmit();   
     } catch (error){
       console.error("Failed to update stats:", error);
     }

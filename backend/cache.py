@@ -8,7 +8,7 @@ _word_details_map = None
 
 def get_word_to_level_map():
     """
-    Creates and caches a mapping from each word to its CEFR level.
+    Creates and caches a mapping from each base word to its CEFR level.
     This avoids reading multiple files on every API call.
     """
     global _word_level_map
@@ -16,6 +16,7 @@ def get_word_to_level_map():
         print("Initializing word-to-level map cache...")
         _word_level_map = {}
         for lvl in data_manager.LEVELS:
+            # load_output_words now returns { word: [details_array] }
             words_data = data_manager.load_output_words(lvl)
             for word_key in words_data.keys():
                 _word_level_map[word_key] = lvl
@@ -24,7 +25,7 @@ def get_word_to_level_map():
 
 def get_word_details_map():
     """
-    Creates and caches a mapping from each word to its full details object.
+    Creates and caches a mapping from each base word to its full array of meaning objects.
     This avoids reading files to look up word metadata during updates.
     """
     global _word_details_map
@@ -32,7 +33,6 @@ def get_word_details_map():
         print("Initializing word-to-details map cache...")
         _word_details_map = {}
         for lvl in data_manager.LEVELS:
-            # load_output_words already returns a dict of {word: details}
             level_words_data = data_manager.load_output_words(lvl)
             _word_details_map.update(level_words_data)
         print(f"Details cache initialized with {len(_word_details_map)} words.")

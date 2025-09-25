@@ -42,53 +42,55 @@ const generateMeaningToWordAnswers = (fullWordData) => {
 };
 
 
-export const createQuizItems = (wordsDetails, wordsStats) => {
-  return wordsDetails.map(wordDetail => {
-    const stats = wordsStats[wordDetail.word] || {};
-    const fullWordData = { ...wordDetail, ...stats };
+export const createQuizItems = (meaningDetailsList, wordsStats) => {
+  // --- UPDATED LOGIC ---
+  // The function now receives an array of specific meaning objects
+  return meaningDetailsList.map(meaningDetail => {
+    // The key is now the unique item_key from the backend
+    const itemKey = meaningDetail.item_key;
+    const stats = wordsStats[itemKey] || {};
+    const fullWordData = { ...meaningDetail, ...stats };
     
     let direction;
-    // --- FIX: Prioritize rival pair direction over all else ---
-    const isRival = !!wordDetail.rival_group;
-    const isNounWithArticleErrors = wordDetail.type === 'Nomen' && fullWordData.article_wrong > 0;
+    const isRival = !!meaningDetail.rival_group;
+    const isNounWithArticleErrors = meaningDetail.type === 'Nomen' && fullWordData.article_wrong > 0;
 
     if (isRival) {
-      // Rivals should ALWAYS be meaning-to-word to test recall.
       direction = 'meaningToWord';
     } else if (isNounWithArticleErrors) {
-      // This noun has a history of article mistakes.
-      // Force the quiz direction to test the article again.
       direction = 'meaningToWord';
     } else {
-      // Default random direction for all other words or nouns without article errors.
       direction = Math.random() > 0.5 ? 'wordToMeaning' : 'meaningToWord';
     }
 
     const isWordToMeaning = direction === 'wordToMeaning';
 
     return {
-      key: fullWordData.word,
+      key: itemKey, // Use the unique item_key
       question: isWordToMeaning ? fullWordData.word : fullWordData.meaning,
       correctAnswers: isWordToMeaning ? generateWordToMeaningAnswers(fullWordData) : generateMeaningToWordAnswers(fullWordData),
       displayAnswer: isWordToMeaning ? fullWordData.meaning : fullWordData.word,
       direction: direction,
       article_wrong: fullWordData.article_wrong || 0,
-      // --- FIX: Pass the rival_group property to the quiz item for highlighting ---
-      rival_group: wordDetail.rival_group || null,
+      rival_group: meaningDetail.rival_group || null,
+      // --- NEW: Store the full details for use in hints/clicks ---
+      fullDetails: meaningDetail,
     };
   });
 };
 
-// This function takes quiz items that are MISSING answers and re-adds them.
-export const rehydrateQuizAnswers = (sanitizedQuizItems, allWords) => {
-  const wordsMap = allWords.reduce((acc, word) => {
-    acc[word.word] = word;
+export const rehydrateQuizAnswers = (sanitizedQuizItems, allWordsDetails) => {
+  // --- UPDATED LOGIC ---
+  // allWordsDetails is the array of meaning objects saved in the session
+  const detailsMap = allWordsDetails.reduce((acc, detail) => {
+    acc[detail.item_key] = detail;
     return acc;
   }, {});
 
   return sanitizedQuizItems.map(item => {
-    const fullWordData = wordsMap[item.key];
-    if (!fullWordData) return item; // Should not happen, but a good safeguard
+    // item.key is the item_key
+    const fullWordData = detailsMap[item.key];
+    if (!fullWordData) return item; 
 
     const isWordToMeaning = item.direction === 'wordToMeaning';
     const correctAnswers = isWordToMeaning 
@@ -97,7 +99,7 @@ export const rehydrateQuizAnswers = (sanitizedQuizItems, allWords) => {
       
     return {
       ...item,
-      correctAnswers, // Add the answers back in memory
+      correctAnswers,
     };
   });
 };

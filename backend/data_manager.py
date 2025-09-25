@@ -60,18 +60,32 @@ def save_repetition_stats(level, data):
 
 
 def load_output_words(level):
-    """Loads all word metrics from a specific output file and maps them by word."""
+    """
+    Loads all word data from a specific output file.
+    The new structure is { "word": [ {meaning_obj_1}, {meaning_obj_2} ] }.
+    """
     file_path = OUTPUT_FOLDER / f"output_{level}.json"
     if not file_path.exists():
         return {}
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+
+        # The new structure is already { word: [details_array] }.
+        # We need to handle the old numeric key format if it exists.
+        if all(key.isdigit() for key in data.keys()):
+            print(f"INFO: Detected old numeric key format in {file_path}. Converting to word-based keys.")
+            word_based_data = {}
+            for key, value_array in data.items():
+                if value_array and 'word' in value_array[0]:
+                    word_key = value_array[0]['word']
+                    if word_key in word_based_data:
+                         word_based_data[word_key].extend(value_array)
+                    else:
+                         word_based_data[word_key] = value_array
+            return word_based_data
         
-        word_map = {}
-        for item in data.values():
-            if isinstance(item, dict) and 'word' in item:
-                word_map[item['word']] = item
-        return word_map
+        return data
+
     except (json.JSONDecodeError, IOError):
         return {}

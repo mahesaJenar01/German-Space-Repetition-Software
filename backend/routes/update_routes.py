@@ -24,28 +24,35 @@ def update_words():
     word_level_map = get_word_to_level_map()
     word_details_map = get_word_details_map()
 
-    # 2. Process confusions first
+    # 2. Process confusions first (operates on base words)
     all_level_data, changed_files_conf = word_updater.process_confusions(results, all_level_data, word_level_map)
 
-    # 3. Process individual quiz results
+    # 3. Process individual quiz results (operates on item_key)
     daily_wrong_counts_today = report_data.get('daily_wrong_counts', {}).get(report_data['today_str'], {})
     changed_files_results = set()
     for result in results:
-        word = result.get('word')
-        word_lvl = word_level_map.get(word)
+        item_key = result.get('word')
+        if not item_key or '#' not in item_key: continue
+
+        base_word = item_key.split('#')[0]
+        word_lvl = word_level_map.get(base_word)
         if not word_lvl: continue
 
-        stats = all_level_data[word_lvl].setdefault(word, data_manager.get_new_repetition_schema())
+        # Get stats for the specific item_key, creating if it doesn't exist
+        stats = all_level_data[word_lvl].setdefault(item_key, data_manager.get_new_repetition_schema())
         original_next_show_date = stats.get('next_show_date')
-        daily_wrong_count = daily_wrong_counts_today.get(word, 0)
+        
+        # Daily wrong count is tracked by base_word
+        daily_wrong_count = daily_wrong_counts_today.get(base_word, 0)
+        
         updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count)
         final_stats = word_updater.adjust_schedule_for_forced_word(
             updated_stats, result, original_next_show_date
         )
-        all_level_data[word_lvl][word] = final_stats
+        all_level_data[word_lvl][item_key] = final_stats
         changed_files_results.add(word_lvl)
 
-    # 4. --- NEW: Process Rival Mastery ---
+    # 4. Process Rival Mastery (operates on base words)
     all_level_data, changed_files_mastery = word_updater.process_rival_mastery(results, all_level_data, word_level_map)
 
     # 5. Update performance reports

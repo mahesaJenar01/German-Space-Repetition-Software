@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 # Load .env (OPENAI_API_KEY)
 load_dotenv()
 
-# --- NEW: Simplified Configuration ---
-INPUT_FILE = Path("input.txt") # The single source of new words
+# --- Configuration ---
+INPUT_FILE = Path("input.txt")
 OUTPUT_FOLDER = Path("output")
-LEVELS = ["a1", "a2", "b1"] # We still need this to know which output files to check
+LEVELS = ["a1", "a2", "b1"]
 
 # --- Unchanged Configuration ---
 MODEL = "gpt-5-mini"
@@ -33,7 +33,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# --- Helper functions (load_system_prompt, load_output_json, etc. are mostly unchanged) ---
+# --- Helper functions (mostly unchanged) ---
 def load_system_prompt():
     if SYSTEM_RULES_PATH.exists():
         return SYSTEM_RULES_PATH.read_text(encoding="utf-8")
@@ -50,16 +50,21 @@ def write_output_json(path: Path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def extract_json(text: str):
+    # This logic now needs to handle the AI's top-level object format
     try:
+        # First, try to load the whole text as JSON
         return json.loads(text)
     except Exception:
-        m = re.search(r"(\{(?:.|\s)*\})", text)
-        if m:
-            try: return json.loads(m.group(1))
-            except Exception: pass
+        # If that fails, find the outermost curly braces
+        match = re.search(r"^\s*(\{.*?\})\s*$", text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except Exception:
+                pass
+    logging.warning("Failed to extract a valid JSON object from the AI response.")
     return None
 
-# ... RateLimiter, call_openai, etc. remain the same as before ...
 class RateLimiter:
     def __init__(self, rpm):
         self.rpm = rpm
@@ -122,7 +127,6 @@ async def call_openai(session, system_prompt, word, rl: RateLimiter, req_id: int
             return None
     return None
 
-# --- NEW: Main processing logic ---
 async def main():
     if not API_KEY:
         print("ERROR: Set OPENAI_API_KEY in .env or env variables.")
@@ -140,9 +144,10 @@ async def main():
         path = OUTPUT_FOLDER / f"output_{level}.json"
         data = load_output_json(path)
         all_output_data[level] = data
-        for item in data.values():
-            if item and 'word' in item:
-                existing_words.add(item['word'].strip().lower())
+        # The value is now an array of meaning objects. Get the word from the first object.
+        for meanings_array in data.values():
+            if meanings_array and isinstance(meanings_array, list) and 'word' in meanings_array[0]:
+                existing_words.add(meanings_array[0]['word'].strip().lower())
     print(f"Found {len(existing_words)} unique words in total across all output files.")
 
     # Step 2: Read the single input file and find words that need processing
@@ -150,7 +155,6 @@ async def main():
         print(f"ERROR: Input file not found at '{INPUT_FILE}'. Please create it.")
         return
         
-    # Handles words separated by commas or newlines
     input_text = INPUT_FILE.read_text(encoding="utf-8").replace('\n', ',')
     words_to_process = [w.strip() for w in input_text.split(',') if w.strip()]
     
@@ -165,9 +169,8 @@ async def main():
     print(f"\n--- Found {len(missing_words)} new words to process -> calling API... ---")
 
     # Step 3: Call API for the missing words
-    rl = RateLimiter(RPM) # Rate limiter setup
+    rl = RateLimiter(RPM)
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
-    tasks = []
     
     async def worker(word):
         async with semaphore:
@@ -180,24 +183,30 @@ async def main():
     # Step 4: Process and sort the results into the correct files
     print("\n--- Processing and sorting AI results ---")
     changed_files = set()
-    for word_obj in results:
-        if word_obj is None or 'level' not in word_obj or 'word' not in word_obj:
-            print(f"   - ⚠️  Skipping invalid result from AI: {word_obj}")
+    for ai_response_obj in results:
+        if ai_response_obj is None or not isinstance(ai_response_obj, dict):
+            print(f"   - ⚠️  Skipping invalid or non-dict result from AI: {ai_response_obj}")
             continue
 
-        level = word_obj['level'].strip().lower()
-        word_str = word_obj['word'].strip()
+        # The AI returns a dict like {"word_form_1": [...], "word_form_2": [...]}. Iterate through it.
+        for word_form, meanings_array in ai_response_obj.items():
+            if not meanings_array or not isinstance(meanings_array, list) or 'level' not in meanings_array[0] or 'word' not in meanings_array[0]:
+                print(f"   - ⚠️  Skipping invalid meaning array for form '{word_form}': {meanings_array}")
+                continue
 
-        if level not in LEVELS:
-            print(f"   - ⚠️  Skipping word '{word_str}' due to invalid level from AI: '{level}'")
-            continue
+            level = meanings_array[0]['level'].strip().lower()
+            word_str = meanings_array[0]['word'].strip()
+
+            if level not in LEVELS:
+                print(f"   - ⚠️  Skipping word '{word_str}' due to invalid level from AI: '{level}'")
+                continue
             
-        # Add the word to the correct in-memory dictionary
-        target_dict = all_output_data[level]
-        next_id = max([int(k) for k in target_dict.keys()] or [0]) + 1
-        target_dict[str(next_id)] = word_obj
-        changed_files.add(level)
-        print(f"   - ✅ Added '{word_str}' to {level.upper()} vocabulary.")
+            # Add the new word entry (the array of meanings) to the correct level's data
+            target_dict = all_output_data[level]
+            next_id = max([int(k) for k in target_dict.keys() if k.isdigit()] or [0]) + 1
+            target_dict[str(next_id)] = meanings_array
+            changed_files.add(level)
+            print(f"   - ✅ Added '{word_str}' to {level.upper()} vocabulary.")
 
     # Step 5: Save all modified files
     if not changed_files:

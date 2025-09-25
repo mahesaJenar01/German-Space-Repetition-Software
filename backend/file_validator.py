@@ -2,9 +2,7 @@ import json
 from pathlib import Path
 
 # --- Configuration ---
-# Point this to the folder containing your output_*.json files
 OUTPUT_FOLDER = Path("output")
-# Define the levels you want to process
 LEVELS = ["a1", "a2", "b1"]
 
 def validate_and_standardize_files():
@@ -25,7 +23,6 @@ def validate_and_standardize_files():
         if file_path.exists():
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
-                    # Load and store the original dictionary
                     all_data[level] = json.load(f)
                 print(f"✅ Loaded {file_path} ({len(all_data[level])} entries)")
             except json.JSONDecodeError:
@@ -41,19 +38,24 @@ def validate_and_standardize_files():
 
     print("\n--- Phase 1: Checking for misplaced words... ---")
     for source_level, word_dict in all_data.items():
-        # Iterate over a copy of the items because we might delete from the original dict
-        for original_id, word_obj in list(word_dict.items()):
-            actual_level = word_obj.get("level", "").strip().lower()
+        for original_id, meanings_array in list(word_dict.items()):
+            # Data is an array; get details from the first object.
+            if not meanings_array or not isinstance(meanings_array, list):
+                print(f"   - ⚠️  Warning: Invalid entry found for key '{original_id}' in {source_level}.json. Skipping.")
+                continue
+                
+            first_meaning_obj = meanings_array[0]
+            actual_level = first_meaning_obj.get("level", "").strip().lower()
+            word_str = first_meaning_obj.get('word', 'Unknown Word')
 
             if not actual_level or actual_level not in LEVELS:
-                print(f"   - ⚠️  Warning: Word '{word_obj.get('word')}' in {source_level}.json has an invalid or missing level: '{actual_level}'. Skipping.")
+                print(f"   - ⚠️  Warning: Word '{word_str}' in {source_level}.json has an invalid or missing level: '{actual_level}'. Skipping.")
                 continue
 
             if actual_level != source_level:
-                print(f"   - ➡️  Relocating '{word_obj.get('word')}' from {source_level}.json to {actual_level}.json.")
-                # Add the word object to the correct destination list
-                words_to_move[actual_level].append(word_obj)
-                # Remove the word from its incorrect source
+                print(f"   - ➡️  Relocating '{word_str}' from {source_level}.json to {actual_level}.json.")
+                # The item to move is the entire array of meanings.
+                words_to_move[actual_level].append(meanings_array)
                 del all_data[source_level][original_id]
                 total_misplaced += 1
 
@@ -61,37 +63,31 @@ def validate_and_standardize_files():
         print("✅ No misplaced words found.")
     else:
         print(f"✅ Relocated {total_misplaced} words successfully.")
-        # Add the moved words to their new destination dictionaries in memory
-        for dest_level, words_list in words_to_move.items():
-            if not words_list:
-                continue
+        for dest_level, arrays_list in words_to_move.items():
+            if not arrays_list: continue
             
-            # Add the word objects to the end of the list for now. Sorting will handle order.
-            # We convert the existing dict values to a list and extend it.
-            existing_words = list(all_data[dest_level].values())
-            existing_words.extend(words_list)
-            # Temporarily store as a list of objects. We'll build the dict from this list.
-            all_data[dest_level] = existing_words
-
+            existing_arrays = list(all_data[dest_level].values())
+            existing_arrays.extend(arrays_list)
+            # Temporarily store as a list of arrays. We'll build the final dict from this.
+            all_data[dest_level] = existing_arrays
 
     # Step 3: Re-index and standardize ALL files
     print("\n--- Phase 2: Standardizing all files (Sorting & Re-indexing)... ---")
     for level, data in all_data.items():
-        # Ensure the data is a list of dictionary objects for sorting
+        # Ensure data is a list of arrays for sorting
         if isinstance(data, dict):
-            word_objects = list(data.values())
-        elif isinstance(data, list): # This handles the case where words were moved
-            word_objects = data
-        else: # Should not happen, but good for safety
-            word_objects = []
+            word_arrays = list(data.values())
+        elif isinstance(data, list): # Handles the case where words were moved
+            word_arrays = data
+        else:
+            word_arrays = []
 
-        # Sort the words alphabetically to ensure a consistent order every time
-        word_objects.sort(key=lambda x: x.get('word', '').lower())
+        # Sort the list of arrays based on the 'word' in the first object of each array (ascending).
+        word_arrays.sort(key=lambda arr: arr[0].get('word', '').lower() if (arr and arr[0]) else '')
         
         # Create a new, clean dictionary with sequential integer keys starting from "1"
-        reindexed_dict = {str(i + 1): word_obj for i, word_obj in enumerate(word_objects)}
+        reindexed_dict = {str(i + 1): arr for i, arr in enumerate(word_arrays)}
         
-        # Save the cleaned and re-indexed data
         output_path = OUTPUT_FOLDER / f"output_{level}.json"
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(reindexed_dict, f, ensure_ascii=False, indent=2)
@@ -99,6 +95,5 @@ def validate_and_standardize_files():
 
     print("\n--- Validator & Standardizer Finished Successfully ---")
 
-# This allows the script to be run from the command line
 if __name__ == "__main__":
     validate_and_standardize_files()

@@ -43,10 +43,7 @@ const generateMeaningToWordAnswers = (fullWordData) => {
 
 
 export const createQuizItems = (meaningDetailsList, wordsStats) => {
-  // --- UPDATED LOGIC ---
-  // The function now receives an array of specific meaning objects
   return meaningDetailsList.map(meaningDetail => {
-    // The key is now the unique item_key from the backend
     const itemKey = meaningDetail.item_key;
     const stats = wordsStats[itemKey] || {};
     const fullWordData = { ...meaningDetail, ...stats };
@@ -66,22 +63,21 @@ export const createQuizItems = (meaningDetailsList, wordsStats) => {
     const isWordToMeaning = direction === 'wordToMeaning';
 
     return {
-      key: itemKey, // Use the unique item_key
+      key: itemKey,
       question: isWordToMeaning ? fullWordData.word : fullWordData.meaning,
       correctAnswers: isWordToMeaning ? generateWordToMeaningAnswers(fullWordData) : generateMeaningToWordAnswers(fullWordData),
       displayAnswer: isWordToMeaning ? fullWordData.meaning : fullWordData.word,
       direction: direction,
       article_wrong: fullWordData.article_wrong || 0,
       rival_group: meaningDetail.rival_group || null,
-      // --- NEW: Store the full details for use in hints/clicks ---
       fullDetails: meaningDetail,
     };
   });
 };
 
+// This function takes quiz items that are MISSING data and re-adds them.
 export const rehydrateQuizAnswers = (sanitizedQuizItems, allWordsDetails) => {
-  // --- UPDATED LOGIC ---
-  // allWordsDetails is the array of meaning objects saved in the session
+  // Create a fast lookup map from item_key to its full details object
   const detailsMap = allWordsDetails.reduce((acc, detail) => {
     acc[detail.item_key] = detail;
     return acc;
@@ -90,7 +86,7 @@ export const rehydrateQuizAnswers = (sanitizedQuizItems, allWordsDetails) => {
   return sanitizedQuizItems.map(item => {
     // item.key is the item_key
     const fullWordData = detailsMap[item.key];
-    if (!fullWordData) return item; 
+    if (!fullWordData) return item; // Safeguard
 
     const isWordToMeaning = item.direction === 'wordToMeaning';
     const correctAnswers = isWordToMeaning 
@@ -99,7 +95,9 @@ export const rehydrateQuizAnswers = (sanitizedQuizItems, allWordsDetails) => {
       
     return {
       ...item,
-      correctAnswers,
+      correctAnswers, // Add the answers back
+      // --- THIS IS THE FIX: Add the fullDetails back ---
+      fullDetails: fullWordData, 
     };
   });
 };

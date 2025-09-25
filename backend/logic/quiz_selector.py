@@ -16,10 +16,42 @@ from .priority_metrics import (
 # Configuration
 RIVAL_CONFUSION_THRESHOLD = 3
 
+# --- NEW HELPER FUNCTION ---
+def _find_best_rival_meaning(rival_meanings_array, original_word_level):
+    """
+    Finds the most relevant meaning of a rival word based on a priority system.
+    Priority: Same Level > Higher Level > Lower Level.
+    """
+    same_level_meanings = []
+    higher_level_meanings = []
+    lower_level_meanings = []
+
+    # Sort meanings into buckets based on level comparison
+    for meaning in rival_meanings_array:
+        rival_meaning_level = meaning.get('level', 'a1').lower()
+        if rival_meaning_level == original_word_level:
+            same_level_meanings.append(meaning)
+        elif rival_meaning_level > original_word_level:
+            higher_level_meanings.append(meaning)
+        else:
+            lower_level_meanings.append(meaning)
+    
+    # Return the first item from the highest priority bucket that has items
+    if same_level_meanings:
+        return same_level_meanings[0]
+    if higher_level_meanings:
+        return higher_level_meanings[0]
+    if lower_level_meanings:
+        return lower_level_meanings[0]
+    
+    # Fallback in case something is wrong with the data
+    return rival_meanings_array[0] if rival_meanings_array else None
+# --- END OF NEW HELPER FUNCTION ---
+
+
 def calculate_item_priority(stats, meaning_details):
     """
     Aggregates scores from various metrics to determine a specific item's final priority.
-    The role of this function is to orchestrate, not to calculate.
     """
     first_encounter_boost = 10 if stats.get('failed_first_encounter', False) else 0
     total_priority = (
@@ -64,7 +96,6 @@ def weighted_random_selection(items_with_priorities, count=5):
 def select_quiz_words(level, word_to_level_map):
     """
     Main logic for selecting words, now aware of individual meanings.
-    It returns both the specific meaning objects for the quiz and session metadata.
     """
     all_word_details_map = {}
     all_repetition_stats = {}
@@ -137,7 +168,6 @@ def select_quiz_words(level, word_to_level_map):
         key=lambda x: x[1]
     )
 
-    # --- Rival Injection Logic (CORRECTED) ---
     for selected_item, priority in reversed(initial_selection_with_priority):
         base_word_A = selected_item["base_word"]
         stats_A = all_repetition_stats.get(selected_item["item_key"], {})
@@ -146,16 +176,12 @@ def select_quiz_words(level, word_to_level_map):
         for rival_base_B, count in confusions.items():
             if rival_base_B not in word_to_level_map: continue
             
-            # --- THIS IS THE FIX: Reintroduce the nuanced trigger logic ---
             word_A_level = word_to_level_map.get(base_word_A)
             rival_B_level = word_to_level_map.get(rival_base_B)
             if not word_A_level or not rival_B_level: continue
 
             is_same_level = word_A_level == rival_B_level
-            
-            # Trigger if count > 0 AND (they are same level OR the count is high)
             should_trigger = count > 0 and (is_same_level or count >= RIVAL_CONFUSION_THRESHOLD)
-            # --- END OF FIX ---
 
             is_rival_already_present = any(item['base_word'] == rival_base_B for item in final_selection_items)
 
@@ -169,8 +195,12 @@ def select_quiz_words(level, word_to_level_map):
                         continue
 
                 rival_meanings_array = all_word_details_map[rival_base_B]
-                if rival_meanings_array:
-                    rival_meaning_obj = rival_meanings_array[0]
+                
+                # --- THIS IS THE UPDATED LOGIC ---
+                # Use the helper to find the most relevant meaning of the rival
+                rival_meaning_obj = _find_best_rival_meaning(rival_meanings_array, word_A_level)
+                
+                if rival_meaning_obj:
                     rival_item_key = f"{rival_meaning_obj['word']}#{rival_meaning_obj['meaning']}"
                     rival_item_to_inject = {
                         "item_key": rival_item_key,
@@ -182,7 +212,7 @@ def select_quiz_words(level, word_to_level_map):
                     final_selection_items[replacement_index] = rival_item_to_inject
                     
                     rival_pair_bases = (base_word_A, rival_base_B)
-                    print(f"Injecting rival '{rival_base_B}' for '{base_word_A}'. Same-level: {is_same_level}")
+                    print(f"Injecting rival '{rival_base_B}' (Level: {rival_meaning_obj.get('level')}) for '{base_word_A}'.")
                     break
         if rival_pair_bases:
             break

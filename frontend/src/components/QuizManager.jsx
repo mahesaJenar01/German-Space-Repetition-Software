@@ -4,11 +4,15 @@ import * as api from '../services/api';
 
 const SESSION_KEY_PREFIX = 'vocabularyQuizSession_';
 
-const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFeedback, refreshStats, /* updateProgress, */ onWordClick, onShowHint, onHideHint }) => {
+const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFeedback, refreshStats, onWordClick, onShowHint, onHideHint }) => {
   const [inputs, setInputs] = useState({});
   const [results, setResults] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const inputRefs = React.useRef({});
+
+  // --- NEW: State for focused item and random examples ---
+  const [focusedItemKey, setFocusedItemKey] = useState(null);
+  const [randomExamples, setRandomExamples] = useState({});
 
   useEffect(() => {
     if (quizItems.length > 0) {
@@ -16,6 +20,20 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
       setInputs(initialInputs);
       setResults({});
       setIsSubmitted(false);
+
+      // --- NEW: Generate random examples once when the quiz loads ---
+      const examples = {};
+      quizItems.forEach(item => {
+        const exampleString = item.fullDetails?.example || '';
+        if (exampleString) {
+          const allExamples = exampleString.split(';').map(e => e.trim()).filter(Boolean);
+          if (allExamples.length > 0) {
+            const randomIndex = Math.floor(Math.random() * allExamples.length);
+            examples[item.key] = allExamples[randomIndex];
+          }
+        }
+      });
+      setRandomExamples(examples);
     }
   }, [quizItems]);
 
@@ -24,6 +42,9 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
   };
 
   const checkAnswers = async () => {
+    // --- NEW: Clear focus immediately on submit ---
+    setFocusedItemKey(null);
+
     const newResults = {};
     const resultsPayload = [];
 
@@ -62,14 +83,7 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
       
       const sessionKey = `${SESSION_KEY_PREFIX}${level}`;
       sessionStorage.removeItem(sessionKey);
-      console.log(`Quiz submitted. Session for level ${level} cleared to prevent re-taking.`);
-
-      // --- REMOVED LOGIC: UPDATE THE DAILY PROGRESS BAR ---
-      // if (updateProgress) {
-      //   updateProgress(resultsPayload);
-      // }
-      // --- END OF REMOVED LOGIC ---
-
+      
       refreshStats(); 
       onQuizSubmit();   
     } catch (error){
@@ -88,6 +102,10 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
     }
   };
 
+  // --- NEW: Event handlers for focus and blur ---
+  const handleFocus = (key) => setFocusedItemKey(key);
+  const handleBlur = () => setFocusedItemKey(null);
+
   const contextValue = {
     quizItems,
     allWords,
@@ -99,6 +117,11 @@ const QuizManager = ({ children, level, quizItems, allWords, onQuizSubmit, setFe
     onWordClick,
     onShowHint,
     onHideHint,
+    // --- NEW: Pass down focus state and handlers ---
+    focusedItemKey,
+    randomExamples,
+    handleFocus,
+    handleBlur,
   };
 
   return (

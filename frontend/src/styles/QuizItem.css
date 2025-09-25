@@ -189,3 +189,26 @@
     margin-bottom: 0.25rem;
   }
 }
+
+.quiz-example {
+  display: block;
+  text-align: left;
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 0 0.2rem;
+  margin-top: -0.25rem; /* Pull it slightly closer to the input */
+  animation: exampleFadeIn 0.3s ease-out;
+  height: 1.2em; /* Reserve space to prevent layout shift */
+}
+
+@keyframes exampleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

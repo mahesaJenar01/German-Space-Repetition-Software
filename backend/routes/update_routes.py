@@ -24,46 +24,45 @@ def update_words():
     word_level_map = get_word_to_level_map()
     word_details_map = get_word_details_map()
 
-    # 2. Process confusions first (operates on base words)
-    all_level_data, changed_files_conf = word_updater.process_confusions(results, all_level_data, word_level_map)
-
-    # 3. Process individual quiz results (operates on item_key)
+    # Process individual quiz results (operates on item_key)
     daily_wrong_counts_today = report_data.get('daily_wrong_counts', {}).get(report_data['today_str'], {})
-    changed_files_results = set()
+    
     for result in results:
         item_key = result.get('word')
         if not item_key or '#' not in item_key: continue
 
-        base_word = item_key.split('#')[0]
-        word_lvl = word_level_map.get(base_word)
-        if not word_lvl: continue
+        base_word, meaning_str = item_key.split('#', 1)
+        
+        word_lvl = None
+        meanings_array = word_details_map.get(base_word)
+        if meanings_array:
+            correct_meaning_obj = next((m for m in meanings_array if m['meaning'] == meaning_str), None)
+            if correct_meaning_obj:
+                word_lvl = correct_meaning_obj.get('level', '').lower()
 
-        # Get stats for the specific item_key, creating if it doesn't exist
+        if not word_lvl:
+            print(f"WARNING: Could not determine level for item_key '{item_key}'. Skipping update.")
+            continue
+
         stats = all_level_data[word_lvl].setdefault(item_key, data_manager.get_new_repetition_schema())
         original_next_show_date = stats.get('next_show_date')
         
-        # Daily wrong count is tracked by base_word
-        daily_wrong_count = daily_wrong_counts_today.get(base_word, 0)
+        daily_wrong_count = daily_wrong_counts_today.get(base_word, {}).get('total', 0)
         
         updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count)
         final_stats = word_updater.adjust_schedule_for_forced_word(
             updated_stats, result, original_next_show_date
         )
         all_level_data[word_lvl][item_key] = final_stats
-        changed_files_results.add(word_lvl)
 
-    # 4. Process Rival Mastery (operates on base words)
-    all_level_data, changed_files_mastery = word_updater.process_rival_mastery(results, all_level_data, word_level_map)
-
-    # 5. Update performance reports
+    # Update performance reports
     report_data = report_updater.update_reports_from_results(
         report_data, results, word_level_map, word_details_map
     )
 
-    # 6. Save all changes to disk
-    all_changed_files = changed_files_conf.union(changed_files_results, changed_files_mastery)
-    for lvl in all_changed_files:
-        data_manager.save_repetition_stats(lvl, all_level_data[lvl])
+    # Save ALL level data changes to disk
+    for lvl, data_to_save in all_level_data.items():
+        data_manager.save_repetition_stats(lvl, data_to_save)
     
     if 'today_str' in report_data: del report_data['today_str']
     report_manager.save_report_data(report_data)

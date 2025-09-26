@@ -9,8 +9,7 @@ from .priority_metrics import (
     article_weakness,
     recency,
     stickiness,
-    volatility,
-    confusion,
+    volatility
 )
 
 # Configuration
@@ -60,7 +59,6 @@ def calculate_item_priority(stats, meaning_details):
         volatility.calculate_volatility_score(stats) +
         article_weakness.calculate_article_weakness_score(stats, meaning_details) +
         stickiness.calculate_stickiness_score(stats) +
-        confusion.calculate_confusion_score(stats) +
         first_encounter_boost
     )
     return min(total_priority, 100)
@@ -95,7 +93,7 @@ def weighted_random_selection(items_with_priorities, count=5):
 
 def select_quiz_words(level, word_to_level_map):
     """
-    Main logic for selecting words, now aware of individual meanings.
+    Main logic for selecting words. This version strictly enforces the daily new word limit per level.
     """
     all_word_details_map = {}
     all_repetition_stats = {}
@@ -139,90 +137,70 @@ def select_quiz_words(level, word_to_level_map):
     today_str = datetime.now().strftime('%Y-%m-%d')
     seen_today_by_level = report_data.get('daily_seen_words', {}).get(today_str, {})
     
-    candidate_pool = []
+    # --- START OF NEW, CORRECTED LOGIC ---
+
+    # 1. Separate all due items into two groups: those already seen today (reviews)
+    # and those not yet seen today (potential new words).
+    review_items_by_level = {lvl: [] for lvl in levels_to_load}
+    new_items_by_level = {lvl: [] for lvl in levels_to_load}
+
     for item in due_items:
-        word_level = word_to_level_map.get(item["base_word"])
-        if not word_level: continue
+        item_level = word_to_level_map.get(item["base_word"])
+        if not item_level or item_level not in levels_to_load:
+            continue
         
-        seen_words_for_this_level = seen_today_by_level.get(word_level, [])
+        seen_words_for_this_level = seen_today_by_level.get(item_level, [])
         if item["base_word"] in seen_words_for_this_level:
-            candidate_pool.append(item)
-        elif len(seen_words_for_this_level) < data_manager.DAILY_NEW_WORD_LIMIT:
-            candidate_pool.append(item)
+            review_items_by_level[item_level].append(item)
+        else:
+            new_items_by_level[item_level].append(item)
 
-    if not candidate_pool:
-        return {"quiz_words": [], "session_info": session_info}
+    # 2. Build the final selection, prioritizing reviews and respecting the new word limit.
+    final_selection = []
     
-    items_with_priorities = []
-    for item in candidate_pool:
-        stats = all_repetition_stats.get(item["item_key"], data_manager.get_new_repetition_schema())
-        priority = calculate_item_priority(stats, item["details"])
-        items_with_priorities.append((item, priority))
-
-    initial_selection = weighted_random_selection(items_with_priorities, 5)
-    final_selection_items = list(initial_selection)
-    rival_pair_bases = None
-
-    initial_selection_with_priority = sorted(
-        [item for item in items_with_priorities if item[0] in initial_selection],
-        key=lambda x: x[1]
-    )
-
-    for selected_item, priority in reversed(initial_selection_with_priority):
-        base_word_A = selected_item["base_word"]
-        stats_A = all_repetition_stats.get(selected_item["item_key"], {})
-        confusions = stats_A.get('confused_with', {})
+    # In 'mix' mode, we might take words from multiple levels.
+    for lvl in levels_to_load:
+        # Calculate priorities for this level's items
+        review_items_with_priorities = [
+            (item, calculate_item_priority(all_repetition_stats.get(item["item_key"], {}), item["details"]))
+            for item in review_items_by_level[lvl]
+        ]
+        new_items_with_priorities = [
+            (item, calculate_item_priority(all_repetition_stats.get(item["item_key"], {}), item["details"]))
+            for item in new_items_by_level[lvl]
+        ]
         
-        for rival_base_B, count in confusions.items():
-            if rival_base_B not in word_to_level_map: continue
-            
-            word_A_level = word_to_level_map.get(base_word_A)
-            rival_B_level = word_to_level_map.get(rival_base_B)
-            if not word_A_level or not rival_B_level: continue
+        # Add all of today's review words for this level to the final selection.
+        # This ensures you keep practicing what you started.
+        final_selection.extend([item for item, priority in review_items_with_priorities])
 
-            is_same_level = word_A_level == rival_B_level
-            should_trigger = count > 0 and (is_same_level or count >= RIVAL_CONFUSION_THRESHOLD)
+        # Determine how many new words we are allowed to introduce for this level.
+        seen_count = len(seen_today_by_level.get(lvl, []))
+        new_word_slots = data_manager.DAILY_NEW_WORD_LIMIT - seen_count
+        
+        if new_word_slots > 0 and new_items_with_priorities:
+            # We have room for new words. Select some based on priority.
+            num_new_to_select = min(new_word_slots, len(new_items_with_priorities))
+            selected_new = weighted_random_selection(new_items_with_priorities, num_new_to_select)
+            final_selection.extend(selected_new)
 
-            is_rival_already_present = any(item['base_word'] == rival_base_B for item in final_selection_items)
+    # 3. Trim the final pool to the quiz size (5) and format for the frontend.
+    # We prioritize the combined list by priority score to select the most important ones.
+    final_selection_with_priorities = [
+        (item, calculate_item_priority(all_repetition_stats.get(item["item_key"], {}), item["details"]))
+        for item in final_selection
+    ]
+    
+    # Sort by priority descending (higher score is more important)
+    final_selection_with_priorities.sort(key=lambda x: x[1], reverse=True)
 
-            if should_trigger and rival_base_B in all_word_details_map and not is_rival_already_present:
-                item_to_replace = initial_selection_with_priority[0][0]
-                
-                if item_to_replace['base_word'] == base_word_A: 
-                    if len(initial_selection_with_priority) > 1:
-                        item_to_replace = initial_selection_with_priority[1][0]
-                    else:
-                        continue
-
-                rival_meanings_array = all_word_details_map[rival_base_B]
-                
-                # --- THIS IS THE UPDATED LOGIC ---
-                # Use the helper to find the most relevant meaning of the rival
-                rival_meaning_obj = _find_best_rival_meaning(rival_meanings_array, word_A_level)
-                
-                if rival_meaning_obj:
-                    rival_item_key = f"{rival_meaning_obj['word']}#{rival_meaning_obj['meaning']}"
-                    rival_item_to_inject = {
-                        "item_key": rival_item_key,
-                        "base_word": rival_base_B,
-                        "details": rival_meaning_obj
-                    }
-                    
-                    replacement_index = final_selection_items.index(item_to_replace)
-                    final_selection_items[replacement_index] = rival_item_to_inject
-                    
-                    rival_pair_bases = (base_word_A, rival_base_B)
-                    print(f"Injecting rival '{rival_base_B}' (Level: {rival_meaning_obj.get('level')}) for '{base_word_A}'.")
-                    break
-        if rival_pair_bases:
-            break
+    # Take the top 5 most important items for the quiz.
+    quiz_items = weighted_random_selection(final_selection_with_priorities, 5)
 
     final_quiz_details = []
-    for item in final_selection_items:
+    for item in quiz_items:
         detail = item["details"].copy()
         detail['item_key'] = item['item_key']
-        if rival_pair_bases and item["base_word"] in rival_pair_bases:
-            detail['rival_group'] = 1 
         final_quiz_details.append(detail)
             
     return {"quiz_words": final_quiz_details, "session_info": session_info}

@@ -25,12 +25,10 @@ const WordDetail = ({ wordDetails, onClose }) => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
   };
 
-  // Define keys that should NOT be displayed in the main details list.
-  const keysToExclude = ['word', 'right', 'wrong', 'total_encountered'];
+  const keysToExclude = ['word', 'right', 'wrong', 'total_encountered', 'item_key'];
   const detailKeys = Object.keys(wordDetails).filter(key => !keysToExclude.includes(key));
   
   const renderDetailValue = (value) => {
-    // --- THIS IS THE NEW LOGIC ---
     // Check if the value is a string and contains a semicolon
     if (typeof value === 'string' && value.includes(';')) {
       const listItems = value

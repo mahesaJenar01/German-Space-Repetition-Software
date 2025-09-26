@@ -111,7 +111,7 @@ const QuizItem = ({ item, autoFocus }) => {
   };
 
   const itemWordDetails = item.fullDetails;
-  const containerClassName = `quiz-item ${item.rival_group ? 'quiz-item-rival' : ''}`;
+  const containerClassName = `quiz-item`;
 
   return (
     <div className={containerClassName} key={item.key}>

@@ -8,7 +8,7 @@ REPETITION_FOLDER = Path("repetition-list")
 LEVELS = ["a1", "a2", "b1"]
 
 # --- NEW: Centralized gameplay configuration ---
-DAILY_NEW_WORD_LIMIT = 100
+DAILY_NEW_WORD_LIMIT = 5
 MASTERY_GOAL = 3           # 3 consecutive correct answers for mastery
 FAILURE_THRESHOLD = 3      # 3 total wrong answers for failure
 
@@ -24,7 +24,6 @@ REPETITION_SCHEMA = {
     "streak_level": 0,
     "current_delay_days": 0,
     "next_show_date": None,
-    "confused_with": {},
     "recent_history": [],
     "failed_first_encounter": False,
     "last_result_was_wrong": False,

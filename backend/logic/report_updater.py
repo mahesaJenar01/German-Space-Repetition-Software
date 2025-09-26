@@ -51,7 +51,11 @@ def update_reports_from_results(report_data, results, word_level_map, word_detai
         
         elif result_type == "PARTIAL_MATCH_WRONG_ARTICLE":
             daily_level_article_wrong[word_lvl] = daily_level_article_wrong.get(word_lvl, 0) + 1
-            daily_article_wrong_per_word[base_word] = daily_article_wrong_per_word.get(base_word, 0) + 1
+            
+            # --- MODIFICATION FOR ARTICLE WRONG ---
+            article_wrong_stats = daily_article_wrong_per_word.setdefault(base_word, {'total': 0, 'details': {}})
+            article_wrong_stats['total'] += 1
+            article_wrong_stats['details'][item_key] = article_wrong_stats['details'].get(item_key, 0) + 1
             
             if word_type == 'Nomen':
                 type_stats.setdefault('article_wrong', 0)
@@ -63,6 +67,9 @@ def update_reports_from_results(report_data, results, word_level_map, word_detai
                 type_stats['wrong'] += 1
             
             if result_type == 'NO_MATCH':
-                daily_wrong_per_word[base_word] = daily_wrong_per_word.get(base_word, 0) + 1
+                # --- MODIFICATION FOR NO_MATCH WRONG ---
+                word_wrong_stats = daily_wrong_per_word.setdefault(base_word, {'total': 0, 'details': {}})
+                word_wrong_stats['total'] += 1
+                word_wrong_stats['details'][item_key] = word_wrong_stats['details'].get(item_key, 0) + 1
                 
     return report_data

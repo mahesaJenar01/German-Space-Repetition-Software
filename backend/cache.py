@@ -29,7 +29,7 @@ def get_word_details_map():
     """
     Creates and caches a mapping from each base word to its full array of meaning objects.
     This avoids reading files to look up word metadata during updates.
-    THIS FUNCTION IS NOW FIXED TO MERGE MEANINGS.
+    THIS FUNCTION IS NOW FIXED TO MERGE MEANINGS AND ADD LEVEL INFO.
     """
     global _word_details_map
     if _word_details_map is None:
@@ -38,9 +38,13 @@ def get_word_details_map():
         for lvl in data_manager.LEVELS:
             level_words_data = data_manager.load_output_words(lvl)
             
-            # --- THIS IS THE FIX ---
-            # Instead of .update(), we iterate and merge.
             for word, meanings_list in level_words_data.items():
+                # --- THIS IS THE FIX ---
+                # Inject the level into each meaning object before processing
+                for meaning in meanings_list:
+                    meaning['level'] = lvl
+                # --- END FIX ---
+
                 if word in _word_details_map:
                     # If the word already exists, extend its list of meanings
                     _word_details_map[word].extend(meanings_list)

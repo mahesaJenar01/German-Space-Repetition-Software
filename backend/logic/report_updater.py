@@ -14,31 +14,32 @@ def update_reports_from_results(report_data, results, word_level_map, word_detai
     category_performance = report_data.setdefault('category_performance', {})
 
     for result in results:
-        item_key = result.get('word') # This is now the item_key, e.g., "word#meaning"
+        item_key = result.get('word')
         if not item_key or '#' not in item_key:
             continue
             
-        base_word = item_key.split('#')[0]
+        base_word, meaning_str = item_key.split('#', 1)
         
-        word_lvl = word_level_map.get(base_word)
-        # Get details for the specific meaning from the main details map
+        # --- FIX #1: Determine level from the specific meaning object ---
         meanings_array = word_details_map.get(base_word)
-        if not word_lvl or not meanings_array:
+        word_lvl = None
+        word_details = None
+
+        if meanings_array:
+            word_details = next((m for m in meanings_array if m['meaning'] == meaning_str), None)
+            if word_details and 'level' in word_details:
+                word_lvl = word_details['level'].lower()
+        
+        if not word_lvl or not word_details:
+            print(f"WARNING: Could not determine level/details for '{item_key}'. Skipping report update.")
             continue
         
-        # Find the specific meaning object that was quizzed
-        # This is important for getting the correct 'type' (Nomen, Verb, etc.)
-        meaning_str = item_key.split('#', 1)[1]
-        word_details = next((m for m in meanings_array if m['meaning'] == meaning_str), None)
-        if not word_details:
-             word_details = meanings_array[0] # Fallback to first if not found
-
         result_type = result.get('result_type')
         
-        # Use BASE_WORD for reporting unique words seen today.
+        # --- FIX #2: Use ITEM_KEY for tracking unique words seen today ---
         seen_words_for_level = daily_seen.setdefault(word_lvl, [])
-        if base_word not in seen_words_for_level:
-            seen_words_for_level.append(base_word)
+        if item_key not in seen_words_for_level:
+            seen_words_for_level.append(item_key)
 
         word_type = word_details.get('type')
         if word_type:
@@ -52,10 +53,8 @@ def update_reports_from_results(report_data, results, word_level_map, word_detai
         elif result_type == "PARTIAL_MATCH_WRONG_ARTICLE":
             daily_level_article_wrong[word_lvl] = daily_level_article_wrong.get(word_lvl, 0) + 1
             
-            # --- MODIFICATION FOR ARTICLE WRONG ---
-            article_wrong_stats = daily_article_wrong_per_word.setdefault(base_word, {'total': 0, 'details': {}})
-            article_wrong_stats['total'] += 1
-            article_wrong_stats['details'][item_key] = article_wrong_stats['details'].get(item_key, 0) + 1
+            # --- FIX #3: Use new flattened structure for article wrong counts ---
+            daily_article_wrong_per_word[item_key] = daily_article_wrong_per_word.get(item_key, 0) + 1
             
             if word_type == 'Nomen':
                 type_stats.setdefault('article_wrong', 0)
@@ -67,9 +66,7 @@ def update_reports_from_results(report_data, results, word_level_map, word_detai
                 type_stats['wrong'] += 1
             
             if result_type == 'NO_MATCH':
-                # --- MODIFICATION FOR NO_MATCH WRONG ---
-                word_wrong_stats = daily_wrong_per_word.setdefault(base_word, {'total': 0, 'details': {}})
-                word_wrong_stats['total'] += 1
-                word_wrong_stats['details'][item_key] = word_wrong_stats['details'].get(item_key, 0) + 1
+                # --- FIX #4: Use new flattened structure for NO_MATCH wrong counts ---
+                daily_wrong_per_word[item_key] = daily_wrong_per_word.get(item_key, 0) + 1
                 
     return report_data

@@ -24,7 +24,7 @@ def update_words():
     word_level_map = get_word_to_level_map()
     word_details_map = get_word_details_map()
 
-    # Process individual quiz results (operates on item_key)
+    # Get today's wrong counts before processing results
     daily_wrong_counts_today = report_data.get('daily_wrong_counts', {}).get(report_data['today_str'], {})
     
     for result in results:
@@ -47,9 +47,14 @@ def update_words():
         stats = all_level_data[word_lvl].setdefault(item_key, data_manager.get_new_repetition_schema())
         original_next_show_date = stats.get('next_show_date')
         
-        daily_wrong_count = daily_wrong_counts_today.get(base_word, {}).get('total', 0)
+        # --- THIS IS THE FIX ---
+        # Calculate total wrongs for the base_word from the new flattened structure
+        daily_wrong_count_for_base_word = sum(
+            count for key, count in daily_wrong_counts_today.items()
+            if key.startswith(base_word + '#')
+        )
         
-        updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count)
+        updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_base_word)
         final_stats = word_updater.adjust_schedule_for_forced_word(
             updated_stats, result, original_next_show_date
         )

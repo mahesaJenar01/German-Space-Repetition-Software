@@ -12,42 +12,6 @@ from .priority_metrics import (
     volatility
 )
 
-# Configuration
-RIVAL_CONFUSION_THRESHOLD = 3
-
-# --- NEW HELPER FUNCTION ---
-def _find_best_rival_meaning(rival_meanings_array, original_word_level):
-    """
-    Finds the most relevant meaning of a rival word based on a priority system.
-    Priority: Same Level > Higher Level > Lower Level.
-    """
-    same_level_meanings = []
-    higher_level_meanings = []
-    lower_level_meanings = []
-
-    # Sort meanings into buckets based on level comparison
-    for meaning in rival_meanings_array:
-        rival_meaning_level = meaning.get('level', 'a1').lower()
-        if rival_meaning_level == original_word_level:
-            same_level_meanings.append(meaning)
-        elif rival_meaning_level > original_word_level:
-            higher_level_meanings.append(meaning)
-        else:
-            lower_level_meanings.append(meaning)
-    
-    # Return the first item from the highest priority bucket that has items
-    if same_level_meanings:
-        return same_level_meanings[0]
-    if higher_level_meanings:
-        return higher_level_meanings[0]
-    if lower_level_meanings:
-        return lower_level_meanings[0]
-    
-    # Fallback in case something is wrong with the data
-    return rival_meanings_array[0] if rival_meanings_array else None
-# --- END OF NEW HELPER FUNCTION ---
-
-
 def calculate_item_priority(stats, meaning_details):
     """
     Aggregates scores from various metrics to determine a specific item's final priority.
@@ -135,9 +99,14 @@ def select_quiz_words(level, word_to_level_map):
 
     report_data = report_manager.load_report_data()
     today_str = datetime.now().strftime('%Y-%m-%d')
-    seen_today_by_level = report_data.get('daily_seen_words', {}).get(today_str, {})
+    seen_today_by_level_item_keys = report_data.get('daily_seen_words', {}).get(today_str, {})
     
-    # --- START OF NEW, CORRECTED LOGIC ---
+    # --- THIS IS THE FIX ---
+    # Create a set of seen BASE words from the item_keys for efficient lookup
+    seen_today_by_level_base_words = {
+        lvl: {key.split('#')[0] for key in item_keys}
+        for lvl, item_keys in seen_today_by_level_item_keys.items()
+    }
 
     # 1. Separate all due items into two groups: those already seen today (reviews)
     # and those not yet seen today (potential new words).
@@ -149,8 +118,8 @@ def select_quiz_words(level, word_to_level_map):
         if not item_level or item_level not in levels_to_load:
             continue
         
-        seen_words_for_this_level = seen_today_by_level.get(item_level, [])
-        if item["base_word"] in seen_words_for_this_level:
+        seen_base_words_for_this_level = seen_today_by_level_base_words.get(item_level, set())
+        if item["base_word"] in seen_base_words_for_this_level:
             review_items_by_level[item_level].append(item)
         else:
             new_items_by_level[item_level].append(item)
@@ -175,7 +144,7 @@ def select_quiz_words(level, word_to_level_map):
         final_selection.extend([item for item, priority in review_items_with_priorities])
 
         # Determine how many new words we are allowed to introduce for this level.
-        seen_count = len(seen_today_by_level.get(lvl, []))
+        seen_count = len(seen_today_by_level_base_words.get(lvl, []))
         new_word_slots = data_manager.DAILY_NEW_WORD_LIMIT - seen_count
         
         if new_word_slots > 0 and new_items_with_priorities:

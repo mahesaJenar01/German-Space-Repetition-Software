@@ -49,12 +49,10 @@ export const createQuizItems = (meaningDetailsList, wordsStats) => {
     const fullWordData = { ...meaningDetail, ...stats };
     
     let direction;
-    const isRival = !!meaningDetail.rival_group;
+    // --- THIS IS THE FIX: Removed the 'isRival' check ---
     const isNounWithArticleErrors = meaningDetail.type === 'Nomen' && fullWordData.article_wrong > 0;
 
-    if (isRival) {
-      direction = 'meaningToWord';
-    } else if (isNounWithArticleErrors) {
+    if (isNounWithArticleErrors) {
       direction = 'meaningToWord';
     } else {
       direction = Math.random() > 0.5 ? 'wordToMeaning' : 'meaningToWord';
@@ -69,7 +67,7 @@ export const createQuizItems = (meaningDetailsList, wordsStats) => {
       displayAnswer: isWordToMeaning ? fullWordData.meaning : fullWordData.word,
       direction: direction,
       article_wrong: fullWordData.article_wrong || 0,
-      rival_group: meaningDetail.rival_group || null,
+      // --- REMOVED rival_group property ---
       fullDetails: meaningDetail,
     };
   });

@@ -70,22 +70,3 @@ def process_quiz_result(stats, result, daily_wrong_count):
     stats = _update_scheduling(stats, is_correct, is_partial, daily_wrong_count)
 
     return stats
-
-def adjust_schedule_for_forced_word(stats, result, original_next_show_date_str):
-    """
-    If a word was not due but was forced into a quiz (as a rival) and answered
-    correctly, this function adjusts its schedule to prevent it from showing again
-    too soon.
-    """
-    if result.get('result_type') != 'PERFECT_MATCH' or not original_next_show_date_str:
-        return stats
-
-    today = datetime.now().date()
-    original_next_show_date = datetime.fromisoformat(original_next_show_date_str).date()
-
-    if original_next_show_date > today:
-        new_next_show_date = datetime.now() + timedelta(days=1)
-        stats['next_show_date'] = new_next_show_date.isoformat()
-        print(f"Adjusted schedule for forced word '{result.get('word')}' to tomorrow.")
-
-    return stats

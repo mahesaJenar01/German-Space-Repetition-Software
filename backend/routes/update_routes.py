@@ -36,7 +36,8 @@ def update_words():
         word_lvl = None
         meanings_array = word_details_map.get(base_word)
         if meanings_array:
-            correct_meaning_obj = next((m for m in meanings_array if m['meaning'] == meaning_str), None)
+            meaning_str_stripped = meaning_str.strip()
+            correct_meaning_obj = next((m for m in meanings_array if m['meaning'].strip() == meaning_str_stripped), None)
             if correct_meaning_obj:
                 word_lvl = correct_meaning_obj.get('level', '').lower()
 
@@ -45,20 +46,16 @@ def update_words():
             continue
 
         stats = all_level_data[word_lvl].setdefault(item_key, data_manager.get_new_repetition_schema())
-        original_next_show_date = stats.get('next_show_date')
         
-        # --- THIS IS THE FIX ---
-        # Calculate total wrongs for the base_word from the new flattened structure
         daily_wrong_count_for_base_word = sum(
             count for key, count in daily_wrong_counts_today.items()
             if key.startswith(base_word + '#')
         )
         
-        updated_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_base_word)
-        final_stats = word_updater.adjust_schedule_for_forced_word(
-            updated_stats, result, original_next_show_date
-        )
+        # --- THIS IS THE FIX: Removed the special scheduling adjustment ---
+        final_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_base_word)
         all_level_data[word_lvl][item_key] = final_stats
+        # --- END FIX ---
 
     # Update performance reports
     report_data = report_updater.update_reports_from_results(

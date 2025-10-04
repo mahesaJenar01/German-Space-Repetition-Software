@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import data_manager
 
 HISTORY_MAX_LENGTH = 100
 HARD_WORD_THRESHOLD = 3
@@ -41,9 +40,8 @@ def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
             stats['current_delay_days'] = 1
             stats['next_show_date'] = (today + timedelta(days=1)).isoformat()
         else:
-            new_delay = max(0, stats['current_delay_days'] - stats['streak_level'])
-            stats['current_delay_days'] = new_delay
-            stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat()
+            stats['current_delay_days'] = 0
+            stats['next_show_date'] = today.isoformat()
     return stats
 
 

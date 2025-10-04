@@ -16,7 +16,6 @@ def update_words():
     if not level or level not in data_manager.LEVELS:
         return jsonify({"error": "Invalid or missing level"}), 400
     
-    # 1. Load all necessary data and caches
     all_level_data = {lvl: data_manager.load_repetition_stats(lvl) for lvl in data_manager.LEVELS}
     report_data = report_manager.load_report_data()
     report_data['today_str'] = datetime.now().strftime('%Y-%m-%d')
@@ -24,7 +23,6 @@ def update_words():
     word_level_map = get_word_to_level_map()
     word_details_map = get_word_details_map()
 
-    # Get today's wrong counts before processing results
     daily_wrong_counts_today = report_data.get('daily_wrong_counts', {}).get(report_data['today_str'], {})
     
     for result in results:
@@ -47,22 +45,15 @@ def update_words():
 
         stats = all_level_data[word_lvl].setdefault(item_key, data_manager.get_new_repetition_schema())
         
-        daily_wrong_count_for_base_word = sum(
-            count for key, count in daily_wrong_counts_today.items()
-            if key.startswith(base_word + '#')
-        )
+        daily_wrong_count_for_item = daily_wrong_counts_today.get(item_key, 0)
         
-        # --- THIS IS THE FIX: Removed the special scheduling adjustment ---
-        final_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_base_word)
+        final_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_item)
         all_level_data[word_lvl][item_key] = final_stats
-        # --- END FIX ---
 
-    # Update performance reports
     report_data = report_updater.update_reports_from_results(
         report_data, results, word_level_map, word_details_map
     )
 
-    # Save ALL level data changes to disk
     for lvl, data_to_save in all_level_data.items():
         data_manager.save_repetition_stats(lvl, data_to_save)
     

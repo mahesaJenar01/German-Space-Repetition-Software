@@ -2,6 +2,29 @@ import React from 'react';
 import '../styles/QuizItem.css';
 import { useQuizContext } from '../context/QuizContext';
 
+const getRegisterClassName = (registerValue) => {
+  // First, convert the value to a number. parseInt is perfect for this.
+  const numValue = parseInt(registerValue, 10);
+
+  if (!isNaN(numValue)) {
+    // Now, use the numeric value for comparisons
+    if (numValue <= 3) return 'register-informal';
+    if (numValue <= 5) return 'register-colloquial';
+    if (numValue >= 8) return 'register-formal';
+  } else if (typeof registerValue === 'string') {
+    // Backward compatibility for old string-based values
+    const lowerCaseValue = registerValue.toLowerCase();
+    if (lowerCaseValue.includes('slang') || lowerCaseValue.includes('informal') || lowerCaseValue.includes('umgangssprachlich')) {
+      return 'register-colloquial';
+    }
+    if (lowerCaseValue.includes('formal') || lowerCaseValue.includes('offiziell') || lowerCaseValue.includes('förmlich')) {
+      return 'register-formal';
+    }
+  }
+  return ''; // Neutral (6-7) or unrecognized values get no special style
+};
+
+
 const QuizItem = ({ item, autoFocus }) => {
   const {
     inputs,
@@ -12,7 +35,6 @@ const QuizItem = ({ item, autoFocus }) => {
     onWordClick,
     onShowHint,
     onHideHint,
-    // --- NEW: Get focus state and handlers ---
     focusedItemKey,
     randomExamples,
     handleFocus,
@@ -30,35 +52,28 @@ const QuizItem = ({ item, autoFocus }) => {
 
   const isHintable = !isSubmitted && item.direction === 'meaningToWord';
 
-  // --- NEW: Logic to get and parse the example sentence ---
   const renderExample = () => {
-    // Only show if this input is focused and quiz is not submitted
     if (focusedItemKey !== item.key || isSubmitted) {
       return null;
     }
-
     const exampleString = randomExamples[item.key];
-    if (!exampleString) {
-      return null;
-    }
-
+    if (!exampleString) return null;
     let exampleToShow = '';
     if (item.direction === 'meaningToWord') {
-      // Show the translated (Indonesian) sentence
       const match = exampleString.match(/\((.*?)\)/);
       exampleToShow = match ? match[1] : '';
     } else {
-      // Show the German sentence
       exampleToShow = exampleString.replace(/\s*\(.*?\)\s*/, '').trim();
     }
-    
     return exampleToShow ? <small className="quiz-example">{exampleToShow}</small> : null;
   };
 
   const getWordClassName = () => {
-    if (isSubmitted) return 'word clickable';
-    if (isHintable) return 'word hintable';
-    return 'word';
+    const registerClass = !isSubmitted ? getRegisterClassName(item.fullDetails?.register) : '';
+
+    if (isSubmitted) return `word clickable ${registerClass}`;
+    if (isHintable) return `word hintable ${registerClass}`;
+    return `word ${registerClass}`;
   };
 
   const getInputClassName = () => {
@@ -82,7 +97,6 @@ const QuizItem = ({ item, autoFocus }) => {
       case 'NO_MATCH':
         return <div className="correct-answer">Correct answer: {item.displayAnswer}</div>;
       case 'PARTIAL_MATCH_WRONG_ARTICLE': {
-        // ... (feedback logic remains the same)
         const userInput = inputValue.trim();
         const userArticle = (userInput.match(/^(der|die|das)/i) || [''])[0];
         const userNoun = userInput.replace(/^(der|die|das)\s+/i, '');
@@ -97,7 +111,6 @@ const QuizItem = ({ item, autoFocus }) => {
         );
       }
       case 'PARTIAL_MATCH_MISSING_ARTICLE': {
-        // ... (feedback logic remains the same)
         const correctArticle = (item.displayAnswer.match(/^(Der|Die|Das)/i) || [''])[0];
         return (
           <div className="feedback-partial">
@@ -116,7 +129,7 @@ const QuizItem = ({ item, autoFocus }) => {
   return (
     <div className={containerClassName} key={item.key}>
       <span
-         className={getWordClassName()}
+         className={getWordClassName().trim()}
          onClick={handleWordClick}
          onMouseEnter={(e) => isHintable && onShowHint(itemWordDetails, e)}
          onMouseLeave={() => isHintable && onHideHint()}
@@ -133,7 +146,6 @@ const QuizItem = ({ item, autoFocus }) => {
           className={getInputClassName()}
           placeholder="Type the answer..."
           autoFocus={autoFocus}
-          // --- NEW: Add focus and blur handlers ---
           onFocus={() => handleFocus(item.key)}
           onBlur={handleBlur}
         />

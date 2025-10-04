@@ -13,7 +13,7 @@ def update_words():
     results = data.get('results', [])
     level = data.get('level')
     
-    if not level or (level != "mix" and level not in data_manager.LEVELS):
+    if not level or level not in data_manager.LEVELS:
         return jsonify({"error": "Invalid or missing level"}), 400
     
     # 1. Load all necessary data and caches

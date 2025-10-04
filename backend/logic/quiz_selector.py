@@ -59,14 +59,8 @@ def select_quiz_words(level, word_to_level_map):
     """
     Main logic for selecting words. This version strictly enforces the daily new word limit per level.
     """
-    all_word_details_map = {}
-    all_repetition_stats = {}
-    
-    levels_to_load = data_manager.LEVELS if level == "mix" else [level]
-
-    for lvl in levels_to_load:
-        all_word_details_map.update(data_manager.load_output_words(lvl))
-        all_repetition_stats.update(data_manager.load_repetition_stats(lvl))
+    all_word_details_map = data_manager.load_output_words(level)
+    all_repetition_stats = data_manager.load_repetition_stats(level)
 
     session_info = {
         "daily_word_limit": data_manager.DAILY_NEW_WORD_LIMIT,
@@ -102,54 +96,41 @@ def select_quiz_words(level, word_to_level_map):
     # This dictionary contains { "a1": ["word1#meaningA"], "b1": ["word2#meaningB"] }
     seen_today_by_level_item_keys = report_data.get('daily_seen_words', {}).get(today_str, {})
     
-    # --- THIS IS THE FIX ---
     # Create a single set of all item_keys seen today, regardless of level, for efficient lookup.
     all_seen_item_keys_today = set()
     for item_keys in seen_today_by_level_item_keys.values():
         all_seen_item_keys_today.update(item_keys)
 
     # 1. Separate all due items into two groups: those already seen today (reviews)
-    # and those not yet seen today (potential new words). This is now based on ITEM_KEY.
+    # and those not yet seen today (potential new words).
     review_items = []
-    new_items_by_level = {lvl: [] for lvl in levels_to_load}
+    new_items = []
 
     for item in due_items:
-        item_level = word_to_level_map.get(item["base_word"])
-        if not item_level or item_level not in levels_to_load:
-            continue
-
         if item["item_key"] in all_seen_item_keys_today:
             review_items.append(item)
         else:
-            new_items_by_level[item_level].append(item)
+            new_items.append(item)
 
     # 2. Build the final selection, prioritizing reviews and respecting the new word limit.
     final_selection = []
     final_selection.extend(review_items) # All review items are always eligible
     
-    # In 'mix' mode, we might take words from multiple levels.
-    for lvl in levels_to_load:
-        new_items_for_this_level = new_items_by_level[lvl]
-        if not new_items_for_this_level:
-            continue
-            
+    if new_items:
         # Determine how many new ITEM_KEYS we are allowed to introduce for this level.
-        # The count is now based on the specific item_keys seen today.
-        seen_count_for_level = len(seen_today_by_level_item_keys.get(lvl, []))
+        seen_count_for_level = len(seen_today_by_level_item_keys.get(level, []))
         new_word_slots = data_manager.DAILY_NEW_WORD_LIMIT - seen_count_for_level
         
         if new_word_slots > 0:
             # We have room for new items. Calculate their priorities.
             new_items_with_priorities = [
                 (item, calculate_item_priority(all_repetition_stats.get(item["item_key"], {}), item["details"]))
-                for item in new_items_for_this_level
+                for item in new_items
             ]
 
             num_new_to_select = min(new_word_slots, len(new_items_with_priorities))
             selected_new = weighted_random_selection(new_items_with_priorities, num_new_to_select)
             final_selection.extend(selected_new)
-    # --- END OF FIX ---
-
 
     # 3. Trim the final pool to the quiz size (5) and format for the frontend.
     final_selection_with_priorities = [

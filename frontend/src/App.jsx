@@ -62,11 +62,9 @@ function App() {
     <div className="app-container" onKeyDown={handleKeyDown} tabIndex="0" ref={appContainerRef}>
       <div className="stats-bar">
         <span>Words Practiced: <strong>{practicedToday}</strong></span>
-        {level !== 'mix' && <span>{level.toUpperCase()} Accuracy: <strong>{`${levelAccuracy}%`}</strong></span>}
+        <span>{level.toUpperCase()} Accuracy: <strong>{`${levelAccuracy}%`}</strong></span>
         <span>Overall Accuracy: <strong>{`${overallAccuracy}%`}</strong></span>
       </div>
-      
-      {/* --- REMOVED the ProgressBar component from here --- */}
       
       <LevelSelector level={level} setLevel={setLevel} />
       

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import data_manager
 
-HISTORY_MAX_LENGTH = 10
+HISTORY_MAX_LENGTH = 100
 HARD_WORD_THRESHOLD = 3
 
 def _update_stickiness_score(stats, is_correct):

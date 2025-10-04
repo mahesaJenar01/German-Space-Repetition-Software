@@ -51,7 +51,7 @@ export const useQuiz = (level) => {
       setDailySessionInfo(sessionInfo);
 
       if (meaningDetailsList.length === 0) {
-        setFeedback('No more words to be displayed, congratulations!');
+        setFeedback("You're all done for today. Check back tomorrow!");
         setCurrentQuizDetails([]);
         setQuizItems([]);
         return { restored: false, data: null };

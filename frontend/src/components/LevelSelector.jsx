@@ -13,7 +13,6 @@ const LevelSelector = ({ level, setLevel }) => {
         <option value="a1">A1</option>
         <option value="a2">A2</option>
         <option value="b1">B1</option>
-        <option value="mix">Mix (A1-B1)</option>
       </select>
     </div>
   );

@@ -1,53 +1,58 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import LevelSelector from './components/LevelSelector';
 import QuizContainer from './components/QuizContainer';
 import WordDetail from './components/WordDetail';
 import HintCard from './components/HintCard';
 import QuizManager from './components/QuizManager';
-// import ProgressBar from './components/ProgressBar'; // --- REMOVED ---
 import './App.css';
-import { useQuiz } from './hooks/useQuiz';
-import { useDailyStats } from './hooks/useDailyStats';
-import { useWordDetail } from './hooks/useWordDetail';
-import { useHint } from './hooks/useHint';
-// import { useDailyProgress } from './hooks/useDailyProgress'; // --- REMOVED ---
-
-const LEVEL_STORAGE_KEY = 'vocabularyAppLevel';
+import { useQuizStore } from './store/quizStore'; // <-- IMPORT THE STORE
 
 function App() {
-  const [level, setLevel] = useState(() => {
-    const savedLevel = localStorage.getItem(LEVEL_STORAGE_KEY);
-    return savedLevel || 'a1';
-  });
+  // --- Select state and actions from the Zustand store ---
+  const { 
+    level, 
+    isQuizCompleted, 
+    quizItems, 
+    isLoading, 
+    feedback,
+    practicedToday, 
+    todayStats,
+    selectedWord,
+    hintData,
+    hintPosition,
+    fetchWords,
+    closeWordDetail,
+  } = useQuizStore();
   
-  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
-  
-  const { quizItems, allWords, isLoading, feedback, setFeedback, fetchWords, dailySessionInfo } = useQuiz(level);
-  const { practicedToday, todayStats, refreshStats } = useDailyStats();
-  const { selectedWord, showWordDetail, closeWordDetail } = useWordDetail();
-  const { hintData, hintPosition, showHint, hideHint } = useHint();
-  // const { progress, updateProgress } = useDailyProgress(level, dailySessionInfo); // --- REMOVED ---
-
   const appContainerRef = useRef(null);
   
-  const handleKeyDown = async (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && isQuizCompleted) {
-      setIsQuizCompleted(false);
-      await fetchWords(true);
+      // Directly call the action from the store
+      fetchWords(true);
     }
   };
-  
-  useEffect(() => {
-    localStorage.setItem(LEVEL_STORAGE_KEY, level);
-    setIsQuizCompleted(false);
-  }, [level]);
 
   useEffect(() => {
+    // This effect now only handles focus management
     if (isQuizCompleted && appContainerRef.current) {
       appContainerRef.current.focus({ preventScroll: true });
     }
   }, [isQuizCompleted]);
+  
+  // This effect handles closing the word detail modal with the 'Esc' key
+  useEffect(() => {
+    const handleEsc = (event) => {
+       if (event.key === 'Escape') {
+         closeWordDetail();
+       }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [closeWordDetail]);
 
+
+  // --- All calculations remain the same, using state from the store ---
   const totalCorrect = Object.values(todayStats.correct_by_level).reduce((sum, count) => sum + count, 0);
   const totalWrong = Object.values(todayStats.wrong_by_level).reduce((sum, count) => sum + count, 0);
   const overallTotal = totalCorrect + totalWrong;
@@ -66,23 +71,10 @@ function App() {
         <span>Overall Accuracy: <strong>{`${overallAccuracy}%`}</strong></span>
       </div>
       
-      <LevelSelector level={level} setLevel={setLevel} />
+      <LevelSelector />
       
       {isLoading ? (<p>Loading words...</p>) : (
-        <QuizManager
-          level={level}
-          quizItems={quizItems}
-          allWords={allWords}
-          setFeedback={setFeedback}
-          refreshStats={refreshStats}
-          // updateProgress={updateProgress} // --- REMOVED ---
-          onQuizSubmit={() => setIsQuizCompleted(true)}
-          onWordClick={(wordDetailsObject) => {
-            showWordDetail(wordDetailsObject);
-          }}
-          onShowHint={showHint}
-          onHideHint={hideHint}
-        >
+        <QuizManager quizItems={quizItems}>
           <QuizContainer />
         </QuizManager>
       )}

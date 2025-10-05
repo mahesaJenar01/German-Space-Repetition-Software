@@ -1,7 +1,11 @@
 import React from 'react';
 import '../styles/LevelSelector.css';
+import { useQuizStore } from '../store/quizStore';
 
-const LevelSelector = ({ level, setLevel }) => {
+const LevelSelector = () => {
+  // Get state and actions directly from the store
+  const { level, setLevel } = useQuizStore();
+
   return (
     <div className="level-selector">
       <label htmlFor="level-select">Choose a level:</label>

@@ -15,7 +15,11 @@ from .priority_metrics import (
 def calculate_item_priority(stats, meaning_details):
     """
     Aggregates scores from various metrics to determine a specific item's final priority.
+    Starred words get an extremely high priority to ensure they are selected.
     """
+    if stats.get('is_starred', False):
+        return 1000 # Give starred words a massive priority boost
+
     first_encounter_boost = 10 if stats.get('failed_first_encounter', False) else 0
     total_priority = (
         accuracy.calculate_accuracy_score(stats) +
@@ -86,9 +90,13 @@ def select_quiz_words(level, word_to_level_map):
     today = date.today()
     for item in all_learnable_items:
         stats = all_repetition_stats.get(item["item_key"], {})
+        
+        # A word is due if it's starred OR if its scheduled date has passed
+        is_starred = stats.get('is_starred', False)
         next_show_str = stats.get('next_show_date')
-        is_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
-        if is_due:
+        is_scheduled_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
+        
+        if is_starred or is_scheduled_due:
             due_items.append(item)
 
     report_data = report_manager.load_report_data()

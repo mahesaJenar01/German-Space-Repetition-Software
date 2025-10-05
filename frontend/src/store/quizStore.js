@@ -34,7 +34,6 @@ export const useQuizStore = create((set, get) => ({
   setLevel: (newLevel) => {
     if (get().level === newLevel) return; // Prevent re-fetching for the same level
     localStorage.setItem(LEVEL_STORAGE_KEY, newLevel);
-    // The isQuizCompleted reset is now handled by fetchWords, simplifying this action
     set({ level: newLevel }); 
     get().fetchWords(true); // Force refetch when level changes
   },
@@ -44,8 +43,6 @@ export const useQuizStore = create((set, get) => ({
   setIsQuizCompleted: (status) => set({ isQuizCompleted: status }),
 
   fetchWords: async (forceRefetch = false) => {
-    // --- THIS IS THE FIX ---
-    // Always reset the completion status when starting to fetch a new quiz.
     set({ isQuizCompleted: false });
 
     const { level } = get();
@@ -140,6 +137,49 @@ export const useQuizStore = create((set, get) => ({
     }
   },
   hideHint: () => set({ hintData: null }),
+
+  // --- NEW ACTION ---
+  toggleStarStatus: async (itemKey) => {
+    const { quizItems, selectedWord } = get();
+
+    // Find the original status for potential rollback
+    const itemInQuiz = quizItems.find(item => item.key === itemKey) || (selectedWord?.item_key === itemKey ? { fullDetails: selectedWord } : null);
+    const originalStatus = itemInQuiz?.fullDetails?.is_starred ?? false;
+    const newStatus = !originalStatus;
+
+    // --- Optimistic UI Update ---
+    // 1. Update the list of quiz items
+    set({
+      quizItems: quizItems.map(item =>
+        item.key === itemKey
+          ? { ...item, fullDetails: { ...item.fullDetails, is_starred: newStatus } }
+          : item
+      ),
+    });
+    // 2. Update the currently selected word in the modal
+    if (selectedWord && selectedWord.item_key === itemKey) {
+      set({ selectedWord: { ...selectedWord, is_starred: newStatus } });
+    }
+
+    // --- API Call ---
+    try {
+      await api.updateStarStatus(itemKey, newStatus);
+      // On success, the optimistic state is correct. Nothing more to do.
+    } catch (error) {
+      console.error("Failed to update star status:", error);
+      // --- Rollback on failure ---
+      set(state => ({
+        quizItems: state.quizItems.map(item =>
+          item.key === itemKey
+            ? { ...item, fullDetails: { ...item.fullDetails, is_starred: originalStatus } }
+            : item
+        ),
+        selectedWord: state.selectedWord && state.selectedWord.item_key === itemKey
+          ? { ...state.selectedWord, is_starred: originalStatus }
+          : state.selectedWord,
+      }));
+    }
+  },
 }));
 
 // --- Initialize the store with data on app load ---

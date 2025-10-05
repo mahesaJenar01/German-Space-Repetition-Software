@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import '../styles/WordDetail.css';
+import { useQuizStore } from '../store/quizStore';
 
 const formatRegisterValue = (value) => {
   const numValue = parseInt(value, 10);
@@ -33,6 +34,8 @@ const formatRegisterValue = (value) => {
 };
 
 const WordDetail = ({ wordDetails, onClose }) => {
+  const { toggleStarStatus } = useQuizStore();
+
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === 'Escape') {
@@ -49,11 +52,16 @@ const WordDetail = ({ wordDetails, onClose }) => {
     return null;
   }
 
+  const handleStarClick = (e) => {
+    e.stopPropagation(); // Prevent the modal from closing when star is clicked
+    toggleStarStatus(wordDetails.item_key);
+  };
+
   const formatKey = (key) => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
   };
 
-  const keysToExclude = ['word', 'right', 'wrong', 'total_encountered', 'item_key'];
+  const keysToExclude = ['word', 'right', 'wrong', 'total_encountered', 'item_key', 'is_starred'];
   const detailKeys = Object.keys(wordDetails).filter(key => !keysToExclude.includes(key));
   
   const renderDetailValue = (key, value) => {
@@ -79,14 +87,25 @@ const WordDetail = ({ wordDetails, onClose }) => {
       <div className="word-detail-content" onClick={(e) => e.stopPropagation()}>
         <button className="close-button" onClick={onClose} aria-label="Close details">&times;</button>
         
-        <h2>{wordDetails.word}</h2>
+        <div className="word-detail-header">
+          <h2>{wordDetails.word}</h2>
+          <button
+            className={`star-button ${wordDetails.is_starred ? 'starred' : ''}`}
+            onClick={handleStarClick}
+            aria-label={wordDetails.is_starred ? 'Unstar this word' : 'Star this word'}
+            title={wordDetails.is_starred ? 'Unstar this word' : 'Star this word'}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+            </svg>
+          </button>
+        </div>
         
         <dl className="word-attributes">
           {detailKeys.map(key => (
             wordDetails[key] != null && wordDetails[key] !== '' && (
               <div key={key} className="attribute-item">
                 <dt>{formatKey(key)}</dt>
-                {/* Pass the key to the render function */}
                 <dd>{renderDetailValue(key, wordDetails[key])}</dd>
               </div>
             )

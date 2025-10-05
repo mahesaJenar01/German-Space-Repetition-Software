@@ -9,10 +9,12 @@ CORS(app)
 from routes.quiz_routes import quiz_bp
 from routes.update_routes import update_bp
 from routes.report_routes import report_bp
+from routes.word_routes import word_bp # <-- IMPORT NEW BLUEPRINT
 
 app.register_blueprint(quiz_bp)
 app.register_blueprint(update_bp)
 app.register_blueprint(report_bp)
+app.register_blueprint(word_bp) # <-- REGISTER NEW BLUEPRINT
 
 # --- Optional: A simple root endpoint to confirm the server is running ---
 @app.route('/')

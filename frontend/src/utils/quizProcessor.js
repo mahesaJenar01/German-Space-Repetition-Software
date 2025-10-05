@@ -46,10 +46,10 @@ export const createQuizItems = (meaningDetailsList, wordsStats) => {
   return meaningDetailsList.map(meaningDetail => {
     const itemKey = meaningDetail.item_key;
     const stats = wordsStats[itemKey] || {};
+    // fullWordData now correctly contains both details and stats (like is_starred)
     const fullWordData = { ...meaningDetail, ...stats };
     
     let direction;
-    // --- THIS IS THE FIX: Removed the 'isRival' check ---
     const isNounWithArticleErrors = meaningDetail.type === 'Nomen' && fullWordData.article_wrong > 0;
 
     if (isNounWithArticleErrors) {
@@ -67,8 +67,8 @@ export const createQuizItems = (meaningDetailsList, wordsStats) => {
       displayAnswer: isWordToMeaning ? fullWordData.meaning : fullWordData.word,
       direction: direction,
       article_wrong: fullWordData.article_wrong || 0,
-      // --- REMOVED rival_group property ---
-      fullDetails: meaningDetail,
+      // Assign the merged object to fullDetails so 'is_starred' is available
+      fullDetails: fullWordData,
     };
   });
 };
@@ -94,7 +94,6 @@ export const rehydrateQuizAnswers = (sanitizedQuizItems, allWordsDetails) => {
     return {
       ...item,
       correctAnswers, // Add the answers back
-      // --- THIS IS THE FIX: Add the fullDetails back ---
       fullDetails: fullWordData, 
     };
   });

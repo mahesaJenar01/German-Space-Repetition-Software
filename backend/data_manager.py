@@ -28,6 +28,7 @@ REPETITION_SCHEMA = {
     "failed_first_encounter": False,
     "last_result_was_wrong": False,
     "successful_corrections": 0,
+    "is_starred": False, # <-- NEW FIELD
 }
 
 # --- NEW FUNCTION TO FIX THE BUG ---

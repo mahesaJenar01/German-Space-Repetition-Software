@@ -26,16 +26,26 @@ export const updateWordStats = async (level, results) => {
   return response.json();
 };
 
-// --- RENAMED and MODIFIED function ---
 export const fetchPracticedTodayCount = async () => {
     const response = await fetch(`${API_URL}/api/report/today`);
     if (!response.ok) throw new Error('Failed to fetch daily stats');
     const data = await response.json();
-    return data.practiced_today || 0; // Use the new key from the backend
+    return data.practiced_today || 0;
 };
 
 export const fetchTodayStats = async () => {
     const response = await fetch(`${API_URL}/api/report/today_stats`);
     if (!response.ok) throw new Error('Failed to fetch today\'s accuracy stats');
     return response.json();
+};
+
+// --- THIS FUNCTION WAS MISSING ---
+export const updateStarStatus = async (item_key, is_starred) => {
+  const response = await fetch(`${API_URL}/api/word/star`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_key, is_starred }),
+  });
+  if (!response.ok) throw new Error('Failed to update star status');
+  return response.json();
 };

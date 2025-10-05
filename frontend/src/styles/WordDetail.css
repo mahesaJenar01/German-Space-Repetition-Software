@@ -44,13 +44,61 @@
   transform: scale(1.1);
 }
 
-.word-detail-content h2 {
+/* --- NEW STYLES for the header container --- */
+.word-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* Transfer layout styles from the h2 */
   margin-top: 0;
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border-color);
+}
+
+/* --- MODIFIED h2 styles --- */
+.word-detail-content h2 {
+  margin: 0; /* Remove old layout properties */
+  padding: 0;
+  border: none; /* Remove old layout properties */
   font-size: 2.2em;
   color: var(--dark-green);
+}
+
+/* --- NEW STYLES for the star button --- */
+.star-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-left: 1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background-color 0.2s;
+}
+
+.star-button:hover {
+  background-color: #fefce8; /* very light yellow */
+}
+
+.star-button svg {
+  width: 28px;
+  height: 28px;
+  stroke: #ca8a04; /* dark yellow */
+  stroke-width: 1.5;
+  transition: fill 0.2s ease;
+  fill: none;
+}
+
+.star-button.starred svg {
+  fill: #facc15; /* yellow */
+  stroke: #ca8a04;
+}
+
+.star-button:active {
+  transform: scale(0.9);
 }
 
 .word-attributes {

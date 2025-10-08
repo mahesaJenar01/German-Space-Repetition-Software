@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import QuizContext from '../context/QuizContext';
 import * as api from '../services/api';
-import { useQuizStore } from '../store/quizStore'; // <-- IMPORT THE STORE
+import { useQuizStore } from '../store/quizStore';
 
 const SESSION_KEY_PREFIX = 'vocabularyQuizSession_';
 
@@ -25,6 +25,10 @@ const QuizManager = ({ children, quizItems }) => {
     hideHint
   } = useQuizStore();
 
+  // --- THIS IS THE FIX ---
+  // This effect resets the quiz state. It should ONLY run when a genuinely
+  // new set of words is loaded, not when a minor property (like 'is_starred') changes.
+  // We determine this by watching the key of the *first* item in the quiz.
   useEffect(() => {
     if (quizItems.length > 0) {
       const initialInputs = quizItems.reduce((acc, item) => ({ ...acc, [item.key]: '' }), {});
@@ -45,7 +49,7 @@ const QuizManager = ({ children, quizItems }) => {
       });
       setRandomExamples(examples);
     }
-  }, [quizItems]);
+  }, [quizItems[0]?.key]); // The dependency is now the key of the first item
 
   const handleInputChange = (key, value) => {
     setInputs(prev => ({ ...prev, [key]: value }));
@@ -102,9 +106,6 @@ const QuizManager = ({ children, quizItems }) => {
   
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !isSubmitted) {
-      // --- THIS IS THE FIX ---
-      // Stop the event here so it doesn't bubble up to App.jsx
-      // and trigger the "next quiz" action immediately.
       e.stopPropagation();
 
       const allFilled = quizItems.length > 0 && quizItems.every(item => (inputs[item.key] || "").trim() !== '');
@@ -121,15 +122,14 @@ const QuizManager = ({ children, quizItems }) => {
 
   const contextValue = {
     quizItems,
-    // allWords is no longer needed here
     inputs,
     results,
     isSubmitted,
     inputRefs,
     handleInputChange,
-    onWordClick: showWordDetail, // Pass store action directly
-    onShowHint: showHint,       // Pass store action directly
-    onHideHint: hideHint,       // Pass store action directly
+    onWordClick: showWordDetail,
+    onShowHint: showHint,
+    onHideHint: hideHint,
     focusedItemKey,
     randomExamples,
     handleFocus,

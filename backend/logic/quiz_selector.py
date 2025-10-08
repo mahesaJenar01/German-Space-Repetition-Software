@@ -90,13 +90,14 @@ def select_quiz_words(level, word_to_level_map):
     today = date.today()
     for item in all_learnable_items:
         stats = all_repetition_stats.get(item["item_key"], {})
-        
-        # A word is due if it's starred OR if its scheduled date has passed
-        is_starred = stats.get('is_starred', False)
         next_show_str = stats.get('next_show_date')
-        is_scheduled_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
         
-        if is_starred or is_scheduled_due:
+        # --- THIS IS THE FIX ---
+        # A word is due ONLY if its scheduled date has passed.
+        # Starring is a priority boost, not a schedule override.
+        is_due = not next_show_str or (datetime.fromisoformat(next_show_str).date() <= today if next_show_str else True)
+        
+        if is_due:
             due_items.append(item)
 
     report_data = report_manager.load_report_data()

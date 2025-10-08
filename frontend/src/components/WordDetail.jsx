@@ -61,7 +61,15 @@ const WordDetail = ({ wordDetails, onClose }) => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
   };
 
-  const keysToExclude = ['word', 'right', 'wrong', 'total_encountered', 'item_key', 'is_starred'];
+  // --- THIS IS THE FIX ---
+  // We expand this list to include all internal repetition stats that
+  // should not be displayed to the user on the detail card.
+  const keysToExclude = [
+    'word', 'right', 'wrong', 'total_encountered', 'item_key', 'is_starred',
+    'article_wrong', 'last_seen', 'last_correct', 'consecutive_correct',
+    'streak_level', 'current_delay_days', 'next_show_date', 'recent_history',
+    'failed_first_encounter', 'last_result_was_wrong', 'successful_corrections'
+  ];
   const detailKeys = Object.keys(wordDetails).filter(key => !keysToExclude.includes(key));
   
   const renderDetailValue = (key, value) => {

@@ -14,34 +14,61 @@ def _update_stickiness_score(stats, is_correct):
 def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
     """Handles the spaced repetition scheduling logic."""
     today = datetime.now()
-    if is_correct:
-        stats['right'] += 1
-        stats['consecutive_correct'] += 1
-        stats['last_correct'] = today.isoformat()
-        stats['article_wrong'] = 0 
-        
-        if stats['consecutive_correct'] >= 3:
-            stats['streak_level'] += 1
-            new_delay = stats['current_delay_days'] + stats['streak_level']
-            stats['current_delay_days'] = new_delay
-            stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat()
-            stats['consecutive_correct'] = 0
-    
-    elif is_partial:
-        stats['article_wrong'] += 1
-    
-    else: # Incorrect (NO_MATCH)
-        stats['wrong'] += 1
-        stats['consecutive_correct'] = 0
-        stats['streak_level'] = 0
+    is_starred = stats.get('is_starred', False)
 
-        if daily_wrong_count >= HARD_WORD_THRESHOLD - 1:
-            stats['wrong'] += 2
-            stats['current_delay_days'] = 1
-            stats['next_show_date'] = (today + timedelta(days=1)).isoformat()
-        else:
-            stats['current_delay_days'] = 0
-            stats['next_show_date'] = today.isoformat()
+    if is_starred:
+        # --- SPECIAL LOGIC FOR STARRED WORDS ---
+        if is_correct:
+            stats['right'] += 1
+            stats['consecutive_correct'] += 1
+            stats['last_correct'] = today.isoformat()
+            
+            # Only schedule for tomorrow if 3 consecutive correct answers are achieved
+            if stats['consecutive_correct'] >= 3:
+                stats['next_show_date'] = (today + timedelta(days=1)).isoformat()
+                stats['consecutive_correct'] = 0 # Reset for the next day
+        
+        elif is_partial:
+            stats['article_wrong'] += 1
+            stats['consecutive_correct'] = 0 # Any mistake resets the streak
+            stats['next_show_date'] = today.isoformat() # Make it appear again today
+        
+        else: # Incorrect (NO_MATCH)
+            stats['wrong'] += 1
+            stats['consecutive_correct'] = 0 # Any mistake resets the streak
+            stats['next_show_date'] = today.isoformat() # Make it appear again today
+
+    else:
+        # --- ORIGINAL LOGIC FOR NON-STARRED WORDS ---
+        if is_correct:
+            stats['right'] += 1
+            stats['consecutive_correct'] += 1
+            stats['last_correct'] = today.isoformat()
+            stats['article_wrong'] = 0 
+            
+            if stats['consecutive_correct'] >= 3:
+                stats['streak_level'] += 1
+                new_delay = stats['current_delay_days'] + stats['streak_level']
+                stats['current_delay_days'] = new_delay
+                stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat()
+                stats['consecutive_correct'] = 0
+        
+        elif is_partial:
+            stats['article_wrong'] += 1
+        
+        else: # Incorrect (NO_MATCH)
+            stats['wrong'] += 1
+            stats['consecutive_correct'] = 0
+            stats['streak_level'] = 0
+
+            if daily_wrong_count >= HARD_WORD_THRESHOLD - 1:
+                stats['wrong'] += 2
+                stats['current_delay_days'] = 1
+                stats['next_show_date'] = (today + timedelta(days=1)).isoformat()
+            else:
+                stats['current_delay_days'] = 0
+                stats['next_show_date'] = today.isoformat()
+    
     return stats
 
 

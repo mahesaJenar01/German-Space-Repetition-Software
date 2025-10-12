@@ -1,0 +1,119 @@
+.daily-debrief-container {
+  width: 100%;
+  animation: fadeIn 0.5s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.daily-debrief-container h1 {
+  color: var(--dark-green);
+  border-bottom: 2px solid var(--primary-green);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0;
+}
+
+.debrief-category {
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+
+.debrief-category h2 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+  font-size: 1.5em;
+  color: var(--text-primary);
+}
+
+.category-description {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  font-size: 1.05em;
+}
+
+.no-words-message {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.debrief-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.debrief-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius-md);
+  background-color: var(--very-light-green);
+  border: 1px solid var(--light-green);
+}
+
+/* Category-specific styling */
+.debrief-category.progress .debrief-item {
+  background-color: #fefce8; /* light yellow */
+  border-color: #fef08a;
+}
+.debrief-category.tricky .debrief-item {
+  background-color: #fee2e2; /* light red */
+  border-color: #fecaca;
+}
+
+
+.word-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.word-german {
+  font-weight: 600;
+  font-size: 1.2em;
+  color: var(--text-primary);
+}
+
+.word-meaning {
+  font-size: 1em;
+  color: var(--text-secondary);
+}
+
+.star-button-debrief {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-left: 1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background-color 0.2s;
+}
+
+.star-button-debrief:hover {
+  background-color: rgba(0,0,0,0.05);
+}
+
+.star-button-debrief svg {
+  width: 24px;
+  height: 24px;
+  stroke: #ca8a04;
+  stroke-width: 1.5;
+  transition: fill 0.2s ease;
+  fill: none;
+}
+
+.star-button-debrief.starred svg {
+  fill: #facc15;
+  stroke: #ca8a04;
+}

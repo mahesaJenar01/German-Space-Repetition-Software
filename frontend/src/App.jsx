@@ -4,11 +4,11 @@ import QuizContainer from './components/QuizContainer';
 import WordDetail from './components/WordDetail';
 import HintCard from './components/HintCard';
 import QuizManager from './components/QuizManager';
+import DailyDebrief from './components/DailyDebrief'; // <-- IMPORT NEW COMPONENT
 import './App.css';
-import { useQuizStore } from './store/quizStore'; // <-- IMPORT THE STORE
+import { useQuizStore } from './store/quizStore';
 
 function App() {
-  // --- Select state and actions from the Zustand store ---
   const { 
     level, 
     isQuizCompleted, 
@@ -22,13 +22,13 @@ function App() {
     hintPosition,
     fetchWords,
     closeWordDetail,
+    isDebriefVisible, // <-- GET NEW STATE
   } = useQuizStore();
   
   const appContainerRef = useRef(null);
   
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && isQuizCompleted) {
-      // Directly call the action from the store
+    if (e.key === 'Enter' && isQuizCompleted && !isDebriefVisible) { // <-- Don't refetch on debrief screen
       fetchWords(true);
     }
   };
@@ -51,8 +51,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [closeWordDetail]);
 
-
-  // --- All calculations remain the same, using state from the store ---
   const totalCorrect = Object.values(todayStats.correct_by_level).reduce((sum, count) => sum + count, 0);
   const totalWrong = Object.values(todayStats.wrong_by_level).reduce((sum, count) => sum + count, 0);
   const overallTotal = totalCorrect + totalWrong;
@@ -73,7 +71,12 @@ function App() {
       
       <LevelSelector />
       
-      {isLoading ? (<p>Loading words...</p>) : (
+      {/* --- THIS IS THE MAIN RENDERING LOGIC CHANGE --- */}
+      {isLoading ? (
+        <p>Loading...</p>
+      ) : isDebriefVisible ? (
+        <DailyDebrief />
+      ) : (
         <QuizManager quizItems={quizItems}>
           <QuizContainer />
         </QuizManager>

@@ -49,3 +49,10 @@ export const updateStarStatus = async (item_key, is_starred) => {
   if (!response.ok) throw new Error('Failed to update star status');
   return response.json();
 };
+
+// --- NEW FUNCTION ---
+export const fetchDailyDebrief = async (level) => {
+  const response = await fetch(`${API_URL}/api/report/daily_debrief/${level}`);
+  if (!response.ok) throw new Error('Failed to fetch daily debrief data');
+  return response.json();
+};

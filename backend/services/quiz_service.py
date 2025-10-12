@@ -48,8 +48,16 @@ def process_quiz_results(results):
         daily_wrong_count_for_item = daily_wrong_counts_today.get(item_key, 0)
         
         # Update the item's repetition stats
-        final_stats = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_item)
+        final_stats, was_just_learned = word_updater.process_quiz_result(stats, result, daily_wrong_count_for_item)
         all_level_data[word_lvl][item_key] = final_stats
+
+        # --- ADD THIS BLOCK ---
+        # If the word was just learned, add it to the report.
+        if was_just_learned:
+            print(f"INFO: Word '{item_key}' has been learned!")
+            learned_words_for_level = report_data['word_learned'].setdefault(word_lvl, {})
+            # We store the date it was learned.
+            learned_words_for_level[item_key] = today_str
 
     # 4. Update aggregate reports
     report_data = report_updater.update_reports_from_results(

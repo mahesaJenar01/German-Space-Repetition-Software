@@ -24,12 +24,13 @@ When you receive a base word (e.g., `verlassen`), you must analyze if it has oth
 *   A base verb vs. its reflexive form (`vorstellen` vs. `sich vorstellen`).
 *   A base verb vs. a form with a mandatory dative object (`ausmachen` vs. `jemandem etwas ausmachen`).
 *   A base verb vs. its reflexive form with a mandatory preposition (`verlassen` vs. `sich verlassen auf`).
+*   A base word vs. its common collocations and idioms (`stehen` vs. `zur Verfügung stehen`).
 
 Identify these essential forms and generate a separate key and JSON array for **each one**.
 
 ---
 
-### **Rule 2: Structure of Each Object within an Array**
+### Rule 2: Structure and Lexical Classification
 
 Each object inside a JSON array must follow this base template. All fields are mandatory. If a field has no applicable value, use an empty string `""`.
 
@@ -37,9 +38,36 @@ Each object inside a JSON array must follow this base template. All fields are m
 {
   "word": "", "meaning": "", "context": "", "example": "", "brief_description": "",
   "register": 0, "synonym": "", "antonym": "", "collocations": "", "type": "",
-  "idioms": "", "level": ""
+  "phrase_type": "", "idioms": "", "level": ""
 }
 ```
+
+**CRITICAL: `phrase_type` Classification**
+You must classify each entry using the `phrase_type` field to distinguish between single words and multi-word units. Use one of the following four values:
+
+1.  **`single_word`**: Use this for any standard, single-word vocabulary item (e.g., `stehen`, `der Tisch`, `schnell`). **This is the default for most entries.**
+2.  **`collocation`**: Use this for multi-word phrases that are very common, natural-sounding, and **have a literal or semi-literal meaning**. This is especially important for *Funktionsverbgefüge* (verb-noun combinations) like `zur Verfügung stehen` (to be available) or `eine Frage stellen` (to ask a question).
+3.  **`idiom`**: Use this for multi-word phrases where the **meaning is non-literal or figurative**, and cannot be understood from the individual words. Example: `auf dem Schlauch stehen` (to be clueless).
+4.  **`fixed_expression`**: Use this for fixed social formulas like greetings or responses that don't fall into the other categories. Examples: `Gern geschehen` (You're welcome), `Vielen Dank` (Many thanks).
+
+When you perform an "Intelligent Form Expansion" (Rule 1) and generate a multi-word key, you **must** assign the correct `phrase_type` (`collocation`, `idiom`, or `fixed_expression`). The base word will always be `single_word`.
+
+---
+
+### Rule 2.1: Logic for Relational Fields (`collocations`, `idioms`)
+
+The `collocations` and `idioms` fields serve as pointers from a base word to its related phrases. Follow this strict logic:
+
+*   **When `phrase_type` is `single_word`:** The `collocations` and `idioms` fields **should be populated** with relevant B1-level phrases that are formed using this base word. This creates a link for the user.
+    *   *Example for the `stehen` entry*: `collocations` can be `"zur Verfügung stehen"`, and `idioms` can be `"auf dem Schlauch stehen"`.
+
+*   **When `phrase_type` is `collocation`:** The `collocations` field for that specific entry **MUST be an empty string `""`**. The entry itself is the destination of the link, not the origin.
+    *   *Example for the `zur Verfügung stehen` entry*: `collocations` must be `""`.
+
+*   **When `phrase_type` is `idiom`:** The `idioms` field for that specific entry **MUST be an empty string `""`**. The entry itself is the idiom.
+    *   *Example for the `auf dem Schlauch stehen` entry*: `idioms` must be `""`.
+
+This rule prevents data redundancy and creates a clear, logical structure where base words point to their associated phrases.
 
 ---
 
@@ -107,45 +135,45 @@ Add the following metrics to each object based on its `type`.
 
 Your output must be a single JSON object.
 
-**Case 1: Intelligent Expansion (Input: `verlassen`)**
+** Case 1: Intelligent Expansion with Correct Classification (Input: `stellen`)**
 ```json
 {
-  "verlassen": [
+  "stellen": [
     {
-      "word": "verlassen", "meaning": "meninggalkan", "register": 7, "level": "A2", "type": "Verb", "conjugation": "verlässt - hat verlassen - verließ",
-      "brief_description": "Bentuk dasar yang berarti 'pergi dari' suatu tempat atau orang. Ini adalah kata kerja transitif yang membutuhkan objek akusatif.",
-      "...": "..."
+      "word": "stellen", "meaning": "meletakkan (secara vertikal)", "register": 7, "level": "A1",
+      "type": "Verb", "phrase_type": "single_word",
+      "collocations": "eine Frage stellen; zur Verfügung stellen", "idioms": "",
+      "brief_description": "Bentuk dasar yang berarti menempatkan sesuatu dalam posisi berdiri atau tegak. Membutuhkan objek akusatif dan preposisi dua arah (Wechselpräposition).",
+      "conjugation": "stellt - hat gestellt - stellte", "..." : "..."
     }
   ],
-  "sich verlassen auf jmdn/etwas": [
+  "eine Frage stellen": [
     {
-      "word": "sich verlassen auf jmdn/etwas", "meaning": "mengandalkan (seseorang/sesuatu)", "register": 7, "level": "B1", "type": "Verb", "conjugation": "verlässt sich - hat sich verlassen - verließ sich",
-      "brief_description": "Bentuk refleksif ini, yang wajib diikuti preposisi 'auf' (+ Akkusatif), mengubah total artinya menjadi 'mempercayai' atau 'bergantung pada'.",
-      "...": "..."
+      "word": "eine Frage stellen", "meaning": "mengajukan pertanyaan", "register": 7, "level": "A2",
+      "type": "Verb", "phrase_type": "collocation",
+      "collocations": "", "idioms": "",
+      "brief_description": "Kolokasi kata kerja-benda yang umum untuk 'bertanya'. Lebih umum digunakan dalam bahasa standar daripada 'fragen'.",
+      "example": "Darf ich Ihnen eine Frage stellen? (Bolehkah saya mengajukan pertanyaan kepada Anda?); Der Student hat dem Professor eine interessante Frage gestellt. (Mahasiswa itu mengajukan pertanyaan menarik kepada profesor.)",
+      "conjugation": "stellt eine Frage - hat eine Frage gestellt - stellte eine Frage", "..." : "..."
     }
   ]
 }
 ```
 
 **Case 2: Filtering for B1 Relevance (Input: `ausmachen`)**
-This is the **correct, filtered output**. Note that the less common B2-level meaning 'mengenali/melihat' (to spot/recognize) has been **intentionally excluded** to focus on the B1 curriculum.
+This example remains the same as it correctly demonstrates the B1 filtering principle. Its structure is now fully compliant with the new rules.
 
 ```json
 {
   "ausmachen": [
     {
-      "word": "ausmachen", "meaning": "mematikan", "context": "Digunakan untuk perangkat elektronik atau cahaya.", "example": "Kannst du bitte das Licht ausmachen? (Bisakah kamu tolong matikan lampunya?); Er hat den Fernseher ausgemacht. (Dia mematikan televisi.)", "brief_description": "Arti paling umum dari 'ausmachen', kebalikan dari 'anmachen' (menyalakan).", "register": 6, "synonym": "ausschalten", "antonym": "anmachen; einschalten", "collocations": "das Licht ausmachen; den Motor ausmachen", "type": "Verb", "idioms": "", "level": "A1", "conjugation": "macht aus - hat ausgemacht - machte aus", "is_dative_verb": "no", "is_reflexive_verb": "no", "is_need_preposition": "no", "is_separable": "yes"
+      "word": "ausmachen", "meaning": "mematikan", "context": "Digunakan untuk perangkat elektronik atau cahaya.", "example": "Kannst du bitte das Licht ausmachen? (Bisakah kamu tolong matikan lampunya?); Er hat den Fernseher ausgemacht. (Dia mematikan televisi.)", "brief_description": "Arti paling umum dari 'ausmachen', kebalikan dari 'anmachen' (menyalakan).", "register": 6, "synonym": "ausschalten", "antonym": "anmachen; einschalten", "collocations": "das Licht ausmachen; den Motor ausmachen", "type": "Verb", "phrase_type": "single_word", "idioms": "", "level": "A1", "conjugation": "macht aus - hat ausgemacht - machte aus", "is_dative_verb": "no", "is_reflexive_verb": "no", "is_need_preposition": "no", "is_separable": "yes"
     },
-    {
-      "word": "ausmachen", "meaning": "menyetujui; menjadwalkan", "context": "Digunakan ketika membuat janji atau kesepakatan.", "example": "Wir haben ausgemacht, uns um 15 Uhr zu treffen. (Kami sepakat bertemu jam 3 sore.); Können wir einen Termin ausmachen? (Bisakah kita menjadwalkan janji?)", "brief_description": "Berarti mencapai kesepakatan bersama, seringkali untuk janji temu.", "register": 7, "synonym": "vereinbaren; abmachen", "antonym": "absagen", "collocations": "einen Termin ausmachen; einen Treffpunkt ausmachen", "type": "Verb", "idioms": "", "level": "A2", "conjugation": "macht aus - hat ausgemacht - machte aus", "is_dative_verb": "no", "is_reflexive_verb": "no", "is_need_preposition": "no", "is_separable": "yes"
-    },
-    {
-      "word": "ausmachen", "meaning": "berjumlah; merupakan bagian", "context": "Digunakan untuk menyatakan jumlah total atau persentase.", "example": "Die Kosten machen 200 Euro aus. (Biayanya berjumlah 200 Euro.); Frauen machen 60% der Gruppe aus. (Wanita merupakan 60% dari kelompok tersebut.)", "brief_description": "Digunakan dalam konteks finansial atau statistik untuk mendefinisikan total atau porsi dari keseluruhan.", "register": 8, "synonym": "betragen", "antonym": "", "collocations": "den Gesamtbetrag ausmachen; einen Anteil ausmachen", "type": "Verb", "idioms": "", "level": "B1", "conjugation": "macht aus - hat ausgemacht - machte aus", "is_dative_verb": "no", "is_reflexive_verb": "no", "is_need_preposition": "no", "is_separable": "yes"
-    }
+    "...":"..."
   ],
   "jemandem etwas ausmachen": [
     {
-      "word": "jemandem etwas ausmachen", "meaning": "mengganggu; menjadi masalah bagi (seseorang)", "context": "Digunakan untuk menanyakan apakah sesuatu menjadi masalah, seringkali sebagai pertanyaan sopan.", "example": "Macht es Ihnen etwas aus, wenn ich das Fenster öffne? (Apakah Anda keberatan jika saya membuka jendela?); Der Lärm macht mir nichts aus. (Kebisingan itu tidak menggangguku.)", "brief_description": "Struktur ini selalu membutuhkan objek datif ('jemandem'). Ini adalah frasa kesopanan yang sangat umum dan penting.", "register": 6, "synonym": "stören", "antonym": "gefallen", "collocations": "macht (es) dir was aus?; es macht mir nichts aus", "type": "Verb", "idioms": "", "level": "A2", "conjugation": "macht aus - hat ausgemacht - machte aus", "is_dative_verb": "yes", "is_reflexive_verb": "no", "is_need_preposition": "no", "is_separable": "yes"
+      "word": "jemandem etwas ausmachen", "meaning": "mengganggu; menjadi masalah bagi (seseorang)", "context": "Digunakan untuk menanyakan apakah sesuatu menjadi masalah, seringkali sebagai pertanyaan sopan.", "example": "Macht es Ihnen etwas aus, wenn ich das Fenster öffne? (Apakah Anda keberatan jika saya membuka jendela?); Der Lärm macht mir nichts aus. (Kebisingan itu tidak menggangguku.)", "brief_description": "Struktur ini selalu membutuhkan objek datif ('jemandem'). Ini adalah frasa kesopanan yang sangat umum dan penting.", "register": 6, "synonym": "stören", "antonym": "gefallen", "collocations": "", "type": "Verb", "phrase_type": "fixed_expression", "idioms": "", "level": "A2", "conjugation": "macht aus - hat ausgemacht - machte aus", "is_dative_verb": "yes", "is_reflexive_verb": "no", "is_need_preposition": "no", "is_separable": "yes"
     }
   ]
 }

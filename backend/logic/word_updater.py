@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import data_manager # <-- IMPORT THE ENTIRE MODULE
 
 HISTORY_MAX_LENGTH = 100
 HARD_WORD_THRESHOLD = 3
@@ -12,9 +13,13 @@ def _update_stickiness_score(stats, is_correct):
     return stats
 
 def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
-    """Handles the spaced repetition scheduling logic."""
+    """
+    Handles the spaced repetition scheduling logic.
+    Returns the updated stats and a boolean indicating if the word was just learned.
+    """
     today = datetime.now()
     is_starred = stats.get('is_starred', False)
+    was_just_learned = False # <-- Initialize the return flag
 
     if is_starred:
         # --- SPECIAL LOGIC FOR STARRED WORDS ---
@@ -52,6 +57,11 @@ def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
                 stats['current_delay_days'] = new_delay
                 stats['next_show_date'] = (today + timedelta(days=new_delay)).isoformat()
                 stats['consecutive_correct'] = 0
+
+                # --- THIS IS THE NEW LOGIC FOR "LEARNED" STATUS ---
+                if new_delay >= data_manager.LEARNED_THRESHOLD_DAYS and not stats.get('is_learned', False):
+                    stats['is_learned'] = True
+                    was_just_learned = True
         
         elif is_partial:
             stats['article_wrong'] += 1
@@ -60,6 +70,7 @@ def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
             stats['wrong'] += 1
             stats['consecutive_correct'] = 0
             stats['streak_level'] = 0
+            stats['is_learned'] = False # <-- A wrong answer resets learned status
 
             if daily_wrong_count >= HARD_WORD_THRESHOLD - 1:
                 stats['wrong'] += 2
@@ -69,13 +80,13 @@ def _update_scheduling(stats, is_correct, is_partial, daily_wrong_count):
                 stats['current_delay_days'] = 0
                 stats['next_show_date'] = today.isoformat()
     
-    return stats
+    return stats, was_just_learned
 
 
 def process_quiz_result(stats, result, daily_wrong_count):
     """
     Updates a single item's stats based on a quiz result.
-    This is a pure function: it receives state and returns new state.
+    Returns the new stats and a flag indicating if the word was just learned.
     """
     result_type = result.get('result_type')
     is_correct = result_type == "PERFECT_MATCH"
@@ -92,6 +103,6 @@ def process_quiz_result(stats, result, daily_wrong_count):
         stats['recent_history'] = history[-HISTORY_MAX_LENGTH:]
     
     stats = _update_stickiness_score(stats, is_correct)
-    stats = _update_scheduling(stats, is_correct, is_partial, daily_wrong_count)
+    stats, was_just_learned = _update_scheduling(stats, is_correct, is_partial, daily_wrong_count)
 
-    return stats
+    return stats, was_just_learned

@@ -65,9 +65,10 @@ def select_quiz_words(level, word_to_level_map):
     """
     all_word_details_map = data_manager.load_output_words(level)
     all_repetition_stats = data_manager.load_repetition_stats(level)
+    limit_for_this_level = data_manager.DAILY_NEW_WORD_LIMITS.get(level, 25)
 
     session_info = {
-        "daily_word_limit": data_manager.DAILY_NEW_WORD_LIMIT,
+        "daily_word_limit": limit_for_this_level,
         "total_words_in_level": len(all_word_details_map),
         "mastery_goal": data_manager.MASTERY_GOAL,
         "failure_threshold": data_manager.FAILURE_THRESHOLD,
@@ -128,7 +129,7 @@ def select_quiz_words(level, word_to_level_map):
     if new_items:
         # Determine how many new ITEM_KEYS we are allowed to introduce for this level.
         seen_count_for_level = len(seen_today_by_level_item_keys.get(level, []))
-        new_word_slots = data_manager.DAILY_NEW_WORD_LIMIT - seen_count_for_level
+        new_word_slots = limit_for_this_level - seen_count_for_level
         
         if new_word_slots > 0:
             # We have room for new items. Calculate their priorities.

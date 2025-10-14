@@ -8,7 +8,11 @@ REPETITION_FOLDER = Path("repetition-list")
 LEVELS = ["a1", "a2", "b1"]
 
 # --- NEW: Centralized gameplay configuration ---
-DAILY_NEW_WORD_LIMIT = 50
+DAILY_NEW_WORD_LIMITS = {
+    "a1": 100,
+    "a2": 100,
+    "b1": 50,
+}
 MASTERY_GOAL = 3           # 3 consecutive correct answers for mastery
 FAILURE_THRESHOLD = 3      # 3 total wrong answers for failure
 LEARNED_THRESHOLD_DAYS = 21 # <-- ADD THIS: Word is "learned" when interval is >= 21 days
